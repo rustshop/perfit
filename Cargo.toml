@@ -1,0 +1,72 @@
+[package]
+name = "perfitd"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+default-run = "perfitd"
+
+[dependencies]
+axum = { version = "0.7.4", features = ["macros"] }
+base64 = "0.22.0"
+bincode = "2.0.0-rc.3"
+clap = { version = "4.4.0", features = ["derive", "env", "string"] }
+color-eyre = "0.6.3"
+hyper = "0.14.27"
+maud = { version = "0.25.0", features = [ "axum" ] }
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+redb-bincode = { version = "0.2.0" }
+tap = "1.0.1"
+serde = { version = "1.0.188", features = ["derive"] }
+resiter = "0.5.0"
+serde_json = "1.0.105"
+serde_urlencoded = "0.7.1"
+tokio = { version = "1.36.0", features = ["net", "fs", "time", "rt-multi-thread", "signal" ] }
+thiserror = "1.0.58"
+tracing-error = "0.2.0"
+uuid = { version = "1.8.0", features = ["serde", "v4", "v7"] }
+poloto = "19.1.2"
+tower-http = { version = "0.5.2", features = ["fs", "cors", "async-compression", "compression-br"] }
+async-compression = { version = "0.4.6", features = ["brotli", "tokio"] }
+bytes = "1.6.0"
+time = { version = "0.3.34", features = [ "serde", "parsing", "serde-human-readable", "macros" ] }
+tower = { version = "0.4.13", features = ["limit", "buffer"] }
+tower-service = "0.3.2"
+futures = "0.3.30"
+tower-layer = "0.3.2"
+pin-project = "1.1.5"
+tower_governor = { version = "0.3.2", features = ["tracing"] }
+serde_qs = "0.12.0"
+rand = "0.8.5"
+jotdown = "0.4.0"
+url = "2.5.0"
+reqwest = { version = "0.12.3", default-features = false, features = ["rustls-tls", "brotli", "json" ] }
+
+
+[profile.dev]
+debug = "line-tables-only"
+lto = "off"
+
+[profile.ci]
+inherits = "dev"
+incremental = false
+
+[profile.release]
+debug = "line-tables-only"
+lto = "fat"
+codegen-units = 1
+
+# Workaround: https://github.com/rust-lang/cargo/issues/12457 which causes
+#             https://github.com/ipetkov/crane/issues/370
+[profile.dev.build-override]
+debug = false
+[profile.ci.build-override]
+debug = false
+[profile.release.build-override]
+debug = false
+
+[profile.dev.package.backtrace]
+opt-level = 3

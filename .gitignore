@@ -1,0 +1,6 @@
+/target
+/.direnv
+/result
+/.env
+/db.redb
+/db.creds
