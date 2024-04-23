@@ -53,7 +53,15 @@
               });
             in
             {
-              ${projectName} = craneLib.buildPackage {
+              perfitd = craneLib.buildPackage {
+                meta.mainProgram = "perfitd";
+
+                preBuild = ''
+                  export PERFIT_BUILD_OUT_DIR=$out/share
+                '';
+              };
+
+              perfit = craneLib.buildPackage {
                 meta.mainProgram = "perfit";
 
                 preBuild = ''
@@ -63,7 +71,11 @@
             });
       in
       {
-        packages.default = multiBuild.${projectName};
+        packages = {
+          default = multiBuild.perfit;
+          perfit = multiBuild.perfit;
+          perfitd = multiBuild.perfitd;
+        };
 
         legacyPackages = multiBuild;
 

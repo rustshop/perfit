@@ -15,8 +15,12 @@ Status: Working, but very alpha, don't use yet. Should be ready soon.
 
 ## Running
 
-If you're a Nix user you can run `nix run github:rustshop/perfit`. Otherwise,
-proceed like with any other Rust project.
+If you're a Nix user you can run:
+
+* `nix run github:rustshop/perfit#perfitd` for server side,
+* `nix run github:rustshop/perfit#perfit` for CLI tool.
+
+Otherwise, proceed like with any other Rust project.
 
 ## Tech stack
 
