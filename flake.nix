@@ -81,7 +81,7 @@
 
         devShells = flakeboxLib.mkShells {
           packages = [ ];
-          nativeBuildInputs = [ pkgs.tailwindcss ];
+          nativeBuildInputs = [ pkgs.tailwindcss pkgs.cargo-insta ];
         };
       }
     );

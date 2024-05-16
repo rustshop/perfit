@@ -22,10 +22,21 @@ pub struct Opts {
     pub db: PathBuf,
 
     #[arg(long, env = "CORS_ORIGIN")]
-    cors_origin: Option<String>,
+    pub cors_origin: Option<String>,
 
     #[arg(long, env = "PERFIT_ASSETS_DIR", default_value = &default_perfit_assets_dir())]
     pub assets_dir: PathBuf,
+}
+
+impl Default for Opts {
+    fn default() -> Self {
+        Self {
+            listen: "[::1]:3000".into(),
+            db: "db.redb".into(),
+            cors_origin: None,
+            assets_dir: default_perfit_assets_dir().into(),
+        }
+    }
 }
 
 impl Opts {

@@ -68,5 +68,13 @@ debug = false
 [profile.release.build-override]
 debug = false
 
-[profile.dev.package.backtrace]
-opt-level = 3
+[dev-dependencies]
+duct = "0.13.7"
+insta = { version = "1.39.0", features = ["yaml"] }
+insta-cmd = "0.6.0"
+tempfile = "3.10.1"
+
+[profile.dev.package]
+backtrace.opt-level = 3
+insta.opt-level = 3
+similar.opt-level = 3
