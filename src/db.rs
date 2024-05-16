@@ -1,6 +1,9 @@
+use std::borrow::Cow;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use bincode::{Decode, Encode};
+use color_eyre::eyre::bail;
 use color_eyre::Result;
 use redb_bincode::{ReadTransaction, TableDefinition, WriteTransaction};
 use serde::{Deserialize, Serialize};
@@ -87,8 +90,42 @@ impl DataPointValue {
 }
 
 /// Metadata attached to a [`DataPoint`]
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+#[derive(Encode, Decode, Serialize, Debug, Clone)]
 pub struct DataPointMetadata(String);
+
+impl DataPointMetadata {
+    pub const MAX_LEN: usize = 256;
+
+    pub fn try_new<'a>(s: impl Into<Cow<'a, str>>) -> Result<Self> {
+        let s = s.into();
+        if Self::MAX_LEN < s.len() {
+            bail!("Metadata too long");
+        }
+        Ok(Self(s.into_owned()))
+    }
+}
+
+impl FromStr for DataPointMetadata {
+    type Err = color_eyre::eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Self::try_new(s)
+    }
+}
+
+impl<'de> Deserialize<'de> for DataPointMetadata {
+    fn deserialize<D>(deserializer: D) -> std::prelude::v1::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+
+        if Self::MAX_LEN < s.len() {
+            return Err(serde::de::Error::custom("Metadata too long"));
+        }
+        Ok(Self(s))
+    }
+}
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
 pub struct DataPointRecord {
