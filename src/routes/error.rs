@@ -5,12 +5,12 @@ use thiserror::Error;
 use tracing::info;
 
 use super::AppJson;
-use crate::models::SeriesId;
+use crate::models::MetricId;
 
 #[derive(Debug, Error)]
 pub enum UserRequestError {
-    #[error("Series Not Found: {0}")]
-    SeriesNotFound(SeriesId),
+    #[error("Metric Not Found: {0}")]
+    MetricNotFound(MetricId),
     #[error("Invalid Path")]
     InvalidPath,
     #[error("Unauthorized - Missing Authorization Token")]
@@ -58,7 +58,7 @@ impl IntoResponse for &UserRequestError {
             | UserRequestError::MissingAuthorizationToken
             | UserRequestError::MalformedAuthoraizationToken
             | UserRequestError::InvalidAuthorizationToken
-            | UserRequestError::SeriesNotFound(_) => (StatusCode::BAD_REQUEST, self.to_string()),
+            | UserRequestError::MetricNotFound(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             UserRequestError::FormatNotSupported => (StatusCode::NOT_FOUND, self.to_string()),
         };
         (status_code, AppJson(UserErrorResponse { message })).into_response()

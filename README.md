@@ -1,6 +1,6 @@
 # PerfIt!
 
-PerfIt is a tiny web service that tracks and plots time series:
+PerfIt is a tiny web service that tracks and plots metrics:
 typically time it takes to execute things in CI-pipelines.
 
 ![Screenshot](https://i.imgur.com/dHYwwlD.png)

@@ -1,7 +1,7 @@
 pub mod account;
 mod auth;
 pub mod error;
-pub mod series;
+pub mod metric;
 pub mod token;
 
 use std::ops;
@@ -18,14 +18,14 @@ use time::OffsetDateTime;
 
 use self::account::account_new;
 use self::error::{RequestError, RequestResult, UserErrorResponse, UserRequestError};
-use self::series::{
-    get_samples, series_get, series_get_default_type, series_new, series_post, SeriesOpts,
+use self::metric::{
+    get_metric, metric_get, metric_get_default_type, metric_new, metric_post, MetricOpts,
 };
 use self::token::token_new;
-use crate::db::SampleRecord;
+use crate::db::DataPointRecord;
 use crate::fragment::{self};
 use crate::models::ts::{DateTimeExt, Ts};
-use crate::models::SeriesId;
+use crate::models::MetricId;
 use crate::state::SharedAppState;
 
 #[derive(FromRequest)]
@@ -45,18 +45,18 @@ const MAX_DATA_POINTS_LIMIT: usize = 1000;
 
 pub async fn render_svg(
     state: &SharedAppState,
-    series_id: SeriesId,
-    opts: &SeriesOpts,
+    metric_id: MetricId,
+    opts: &MetricOpts,
 ) -> color_eyre::Result<(String, ops::Range<OffsetDateTime>)> {
     Ok(render_svg_from_measurements(
-        &get_samples(state, series_id, opts).await?,
+        &get_metric(state, metric_id, opts).await?,
         opts,
     ))
 }
 
 fn render_svg_from_measurements(
-    measurements: &[(Ts, SampleRecord)],
-    opts: &SeriesOpts,
+    measurements: &[(Ts, DataPointRecord)],
+    opts: &MetricOpts,
 ) -> (String, ops::Range<OffsetDateTime>) {
     use poloto::build;
 
@@ -89,7 +89,7 @@ fn render_svg_from_measurements(
 
     let tick_step_secs = (range.as_seconds_f64() / 1.5 / hours_as_secs).ceil() * hours_as_secs;
 
-    let datapoints = measurements.iter().copied().map(|(ts, m)| {
+    let datapoints = measurements.iter().map(|(ts, m)| {
         let y = m.value.as_f32() as f64;
         let x = ts.to_absolute_secs() as f64;
         (x, y)
@@ -216,9 +216,9 @@ pub fn route_handler(state: SharedAppState) -> Router {
         .route("/", get(index))
         .route("/a/", put(account_new))
         .route("/t/:account", put(token_new))
-        .route("/s/", put(series_new))
-        .route("/s/:series", post(series_post).get(series_get_default_type))
-        .route("/s/:series/:type", get(series_get))
+        .route("/s/", put(metric_new))
+        .route("/s/:metric", post(metric_post).get(metric_get_default_type))
+        .route("/s/:metric/:type", get(metric_get))
         .fallback(not_found)
         .with_state(state)
         .layer(middleware::from_fn(cache_control))

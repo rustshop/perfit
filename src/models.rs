@@ -95,12 +95,12 @@ macro_rules! define_uuidv4_newtype {
     };
 }
 
-define_uuidv4_newtype!(SeriesId);
+define_uuidv4_newtype!(MetricId);
 
 #[derive(Debug, Encode, Decode, Default, Clone, Copy)]
-pub struct SeriesInternalId(u64);
+pub struct MetricInternalId(u64);
 
-impl SeriesInternalId {
+impl MetricInternalId {
     pub fn next(self) -> Self {
         Self(self.0 + 1)
     }

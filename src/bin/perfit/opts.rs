@@ -20,9 +20,12 @@ pub struct ServerArgs {
 }
 
 #[derive(Args, Clone, Debug)]
-pub struct SampleArgs {
-    #[arg(long, env = "PERFIT_SERIES")]
-    pub series: String,
+pub struct DataPointArgs {
+    #[arg(long, env = "PERFIT_METRIC")]
+    pub metric: String,
+
+    #[arg(long, env = "PERFIT_METADATA")]
+    pub metadata: Option<String>,
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -35,13 +38,13 @@ pub enum Command {
         server_args: ServerArgs,
 
         #[command(flatten)]
-        sample_args: SampleArgs,
+        data_point_args: DataPointArgs,
 
-        /// Send the sample even if the `cmd` failed
+        /// Send the data point even if the `cmd` failed
         #[arg(long)]
         send_on_failure: bool,
 
-        /// Do not fail if unable to send the sample
+        /// Do not fail if unable to send the data point
         #[arg(long)]
         ignore_send_failure: bool,
 
@@ -49,22 +52,22 @@ pub enum Command {
         cmd: Vec<ffi::OsString>,
     },
 
-    /// Report a sample
+    /// Report a data point
     Post {
         #[command(flatten)]
         server_args: ServerArgs,
 
         #[command(flatten)]
-        sample_args: SampleArgs,
+        data_point_args: DataPointArgs,
 
-        sample: f32,
+        data_point: f32,
     },
 
     #[command(subcommand)]
     Account(AccountCommand),
 
     #[command(subcommand)]
-    Series(SeriesCommand),
+    Metric(MetricCommand),
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -76,7 +79,7 @@ pub enum AccountCommand {
 }
 
 #[derive(Subcommand, Clone, Debug)]
-pub enum SeriesCommand {
+pub enum MetricCommand {
     New {
         #[command(flatten)]
         server_args: ServerArgs,

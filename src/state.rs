@@ -11,7 +11,7 @@ use crate::db::{
 };
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
-use crate::models::{AccountId, SeriesId};
+use crate::models::{AccountId, MetricId};
 
 #[derive(Debug)]
 pub struct AppState {
@@ -70,12 +70,12 @@ impl AppState {
             .await
     }
 
-    pub fn svg_chart_url(&self, series_id: SeriesId) -> String {
-        format!("/s/{}/svg", series_id)
+    pub fn svg_chart_url(&self, metric_id: MetricId) -> String {
+        format!("/s/{}/svg", metric_id)
     }
 
-    pub fn html_chart_url(&self, series_id: SeriesId) -> String {
-        format!("/s/{}", series_id)
+    pub fn html_chart_url(&self, metric_id: MetricId) -> String {
+        format!("/s/{}", metric_id)
     }
 }
 

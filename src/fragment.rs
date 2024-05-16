@@ -1,10 +1,10 @@
 use axum::response::{Html, IntoResponse};
 use maud::{html, Markup, DOCTYPE};
 
-use crate::models::SeriesId;
+use crate::models::MetricId;
 use crate::routes::error::{RequestResult, UserRequestError};
+use crate::routes::metric::MetricOpts;
 use crate::routes::render_svg;
-use crate::routes::series::SeriesOpts;
 use crate::state::SharedAppState;
 
 pub fn page(title: &str, content: Markup) -> Markup {
@@ -62,10 +62,10 @@ pub fn page(title: &str, content: Markup) -> Markup {
 
 pub async fn render_chart_form(
     state: &SharedAppState,
-    series_id: SeriesId,
-    opts: &SeriesOpts,
+    metric_id: MetricId,
+    opts: &MetricOpts,
 ) -> RequestResult<impl IntoResponse> {
-    let (svg, time_bound) = render_svg(state, series_id, opts).await?;
+    let (svg, time_bound) = render_svg(state, metric_id, opts).await?;
     let params = serde_qs::to_string(&opts).map_err(|_| UserRequestError::InvalidPath)?;
 
     const TIME_FORMAT: &[time::format_description::FormatItem<'static>] =
@@ -84,7 +84,7 @@ pub async fn render_chart_form(
     let input_class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500";
     let label_class = "block mb-2 text-sm font-medium text-gray-900 dark:text-white";
     let page_title = if opts.title.is_empty() {
-        series_id.to_string()
+        metric_id.to_string()
     } else {
         opts.title.clone()
     };
@@ -93,7 +93,7 @@ pub async fn render_chart_form(
             &format!("Chart: {}", page_title),
             maud::html! {
                 form
-                    hx-get=(state.html_chart_url(series_id))
+                    hx-get=(state.html_chart_url(metric_id))
                     hx-push-url="true"
                     hx-trigger="change from:(form input) delay:1s, keyup delay:1s"
                     hx-target="find #svg-img"
@@ -107,7 +107,7 @@ pub async fn render_chart_form(
                             (maud::PreEscaped(svg))
                             a
                                 class="absolute bottom-4 right-6 hover:text-blue-600"
-                                href=(format!("{}?{}", state.svg_chart_url(series_id), params)) {
+                                href=(format!("{}?{}", state.svg_chart_url(metric_id), params)) {
                                 "Export..."
                             }
                         }
@@ -210,7 +210,7 @@ pub fn index() -> color_eyre::Result<Markup> {
     let content = html! {
 
         p {
-            "PerfIt is a tiny web service that tracks and plots time series: typically time it takes to execute things in CI-pipelines. "
+            "PerfIt is a tiny web service that tracks and plots metrics: typically time it takes to execute things in CI-pipelines. "
 
             "Read more at "
             a href="https://github.com/rustshop/perfit"

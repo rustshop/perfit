@@ -8,7 +8,7 @@ use tracing::instrument;
 
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
-use crate::models::{AccountId, SeriesId, SeriesInternalId};
+use crate::models::{AccountId, MetricId, MetricInternalId};
 use crate::routes::error::UserRequestError;
 
 pub const TABLE_ROOT_ACCOUNT: TableDefinition<'_, AccountId, ()> =
@@ -18,20 +18,20 @@ pub const TABLE_ACCOUNTS: TableDefinition<'_, AccountId, AccountRecord> =
     TableDefinition::new("accounts");
 
 pub const TABLE_ACCESS_TOKENS: TableDefinition<'_, AccessToken, AccessTokenRecord> =
-    TableDefinition::new("access_tokens");
+    TableDefinition::new("access-tokens");
 
-pub const TABLE_SERIES: TableDefinition<'_, SeriesId, SeriesRecord> =
-    TableDefinition::new("series");
+pub const TABLE_METRICS: TableDefinition<'_, MetricId, MetricRecord> =
+    TableDefinition::new("metrics");
 
-pub const TABLE_SERIES_REV: TableDefinition<'_, SeriesInternalId, SeriesId> =
-    TableDefinition::new("series-rev");
+pub const TABLE_METRIC_REV: TableDefinition<'_, MetricInternalId, MetricId> =
+    TableDefinition::new("metrics-rev");
 
-pub const TABLE_SAMPLES: TableDefinition<'_, Sample, SampleRecord> =
-    TableDefinition::new("samples");
+pub const TABLE_DATA_POINTS: TableDefinition<'_, DataPoint, DataPointRecord> =
+    TableDefinition::new("data-points");
 
 #[derive(Encode, Decode, Clone, Copy)]
-pub struct Sample {
-    pub series_internal_id: SeriesInternalId,
+pub struct DataPoint {
+    pub metric_internal_id: MetricInternalId,
     pub ts: Ts,
 }
 
@@ -71,23 +71,29 @@ impl AccessTokenRecord {
 }
 
 #[derive(Debug, Encode, Decode, Clone, Copy)]
-pub struct SeriesRecord {
+pub struct MetricRecord {
     pub created: Ts,
     pub account_id: AccountId,
-    pub internal_id: SeriesInternalId,
+    pub internal_id: MetricInternalId,
 }
 
 #[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct SampleValue(f32);
+pub struct DataPointValue(f32);
 
-impl SampleValue {
+impl DataPointValue {
     pub fn as_f32(self) -> f32 {
         self.0
     }
 }
-#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone, Copy)]
-pub struct SampleRecord {
-    pub value: SampleValue,
+
+/// Metadata attached to a [`DataPoint`]
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+pub struct DataPointMetadata(String);
+
+#[derive(Encode, Decode, Serialize, Deserialize, Debug, Clone)]
+pub struct DataPointRecord {
+    pub value: DataPointValue,
+    pub metadata: DataPointMetadata,
 }
 
 #[derive(Debug)]

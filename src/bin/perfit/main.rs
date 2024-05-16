@@ -7,6 +7,7 @@ use color_eyre::Result;
 use opts::ServerArgs;
 use reqwest::header::AUTHORIZATION;
 use reqwest::Method;
+use serde_json::json;
 
 use crate::opts::Opts;
 
@@ -19,7 +20,7 @@ async fn main() -> Result<()> {
     match _opts.cmd {
         opts::Command::Run {
             server_args,
-            sample_args,
+            data_point_args,
             cmd,
             send_on_failure,
             ignore_send_failure,
@@ -31,9 +32,9 @@ async fn main() -> Result<()> {
                 exit(exit_code);
             }
 
-            if let Err(err) = send_sample(
+            if let Err(err) = send_data_point(
                 &server_args,
-                &sample_args,
+                &data_point_args,
                 duration.as_micros() as f32 / 1_000_000.,
             )
             .await
@@ -47,15 +48,15 @@ async fn main() -> Result<()> {
         }
         opts::Command::Post {
             server_args,
-            sample_args,
-            sample,
-        } => send_sample(&server_args, &sample_args, sample).await?,
+            data_point_args,
+            data_point,
+        } => send_data_point(&server_args, &data_point_args, data_point).await?,
 
         opts::Command::Account(opts::AccountCommand::New { server_args }) => {
             account_new(&server_args).await?
         }
-        opts::Command::Series(opts::SeriesCommand::New { server_args }) => {
-            series_new(&server_args).await?
+        opts::Command::Metric(opts::MetricCommand::New { server_args }) => {
+            metric_new(&server_args).await?
         }
     }
 
@@ -89,27 +90,30 @@ async fn account_new(server_args: &ServerArgs) -> Result<()> {
     Ok(())
 }
 
-async fn series_new(server_args: &ServerArgs) -> Result<()> {
+async fn metric_new(server_args: &ServerArgs) -> Result<()> {
     let response = make_request(server_args, Method::PUT, "s/", "").await?;
     println!("{}", response.text().await?);
 
     Ok(())
 }
 
-async fn send_sample(
+async fn send_data_point(
     server_args: &ServerArgs,
-    sample_args: &opts::SampleArgs,
-    sample: f32,
+    data_point_args: &opts::DataPointArgs,
+    value: f32,
 ) -> Result<()> {
     let client = reqwest::Client::new();
     let response = client
         .post(
             server_args
                 .server
-                .join(&format!("s/{}", sample_args.series))?,
+                .join(&format!("s/{}", data_point_args.metric))?,
         )
         .header(AUTHORIZATION, format!("Bearer {}", server_args.auth_token))
-        .json(&sample)
+        .json(&json! ({
+            "value": value,
+            "metadata": data_point_args.metadata,
+        }))
         .send()
         .await?;
     let status = response.status();
