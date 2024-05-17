@@ -6,8 +6,10 @@ use clap::Parser;
 use color_eyre::Result;
 use tracing::instrument;
 
+use crate::models::access_token::AccessToken;
+
 fn default_perfit_assets_dir() -> OsString {
-    PathBuf::from(env!("PERFIT_SHARE_DIR"))
+    PathBuf::from(env!("PERFITD_SHARE_DIR"))
         .join("assets")
         .into_os_string()
 }
@@ -15,17 +17,27 @@ fn default_perfit_assets_dir() -> OsString {
 #[derive(Parser, Clone, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Opts {
+    /// Listen address
     #[arg(long, short, default_value = "[::1]:3000")]
     pub listen: String,
 
+    /// Database file path
     #[arg(long, default_value = "db.redb")]
     pub db: PathBuf,
 
-    #[arg(long, env = "CORS_ORIGIN")]
+    /// Cors origin settings
+    #[arg(long, env = "PERFITD_CORS_ORIGIN")]
     pub cors_origin: Option<String>,
 
-    #[arg(long, env = "PERFIT_ASSETS_DIR", default_value = &default_perfit_assets_dir())]
+    /// Root directory of the assets dir
+    #[arg(long, env = "PERFITD_ASSETS_DIR", default_value = &default_perfit_assets_dir())]
     pub assets_dir: PathBuf,
+
+    /// If set it will set root account access token to this value
+    ///
+    /// Can be generated with `perfit token gen`
+    #[arg(long, env = "PERFITD_ROOT_ACCESS_TOKEN")]
+    pub root_access_token: Option<AccessToken>,
 }
 
 impl Default for Opts {
@@ -35,6 +47,7 @@ impl Default for Opts {
             db: "db.redb".into(),
             cors_origin: None,
             assets_dir: default_perfit_assets_dir().into(),
+            root_access_token: None,
         }
     }
 }
@@ -47,8 +60,5 @@ impl Opts {
             .clone()
             .unwrap_or_else(|| format!("http://{}", self.listen))
             .parse()?)
-        //          .ok_or_else(||
-        // color_eyre::eyre::anyhow!("failed to parse CORS
-        // origin"))
     }
 }

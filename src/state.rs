@@ -1,17 +1,15 @@
-use std::os::unix::fs::OpenOptionsExt as _;
-use std::path::Path;
 use std::sync::Arc;
 
-use serde_json::json;
+use tracing::info;
 
 use crate::asset_cache::AssetCache;
 use crate::db::{
-    AccessTokenRecord, AccessTokenType, AccountRecord, Database, TABLE_ACCESS_TOKENS,
-    TABLE_ACCOUNTS, TABLE_ROOT_ACCOUNT,
+    AccessTokenRecord, AccessTokenType, AccountRecord, Database, ROOT_ACCOUNT_ID,
+    TABLE_ACCESS_TOKENS, TABLE_ACCESS_TOKENS_REV, TABLE_ACCOUNTS,
 };
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
-use crate::models::{AccountId, MetricId};
+use crate::models::MetricId;
 
 #[derive(Debug)]
 pub struct AppState {
@@ -20,52 +18,56 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub async fn init_root_account(
-        &self,
-        creds_file: &Path,
-    ) -> color_eyre::Result<Option<(AccountId, AccessToken)>> {
+    pub async fn init_root_account(&self, access_token: &AccessToken) -> color_eyre::Result<()> {
         self.db
             .write_with(|tx| {
-                if tx.open_table(&TABLE_ROOT_ACCOUNT)?.first()?.is_some() {
-                    return Ok(None);
+                tx.open_table(&TABLE_ACCOUNTS)?
+                    .insert(&ROOT_ACCOUNT_ID, &AccountRecord { created: Ts::now() })?;
+
+                let access_tokens_table = &mut tx.open_table(&TABLE_ACCESS_TOKENS)?;
+
+                let access_tokens_rev_table = &mut tx.open_table(&TABLE_ACCESS_TOKENS_REV)?;
+
+                if access_tokens_table.get(access_token)?.is_none() {
+                    info!("Setting new root account access token");
+                    let existing_root_account_access_tokens: Vec<_> = access_tokens_rev_table
+                        .range(
+                            &(ROOT_ACCOUNT_ID, AccessToken::ZERO)
+                                ..=&(ROOT_ACCOUNT_ID, AccessToken::LAST),
+                        )?
+                        .map(|existing| {
+                            let (k, _) = existing?;
+                            let (account_id_db, access_token) = k.value();
+                            debug_assert_eq!(ROOT_ACCOUNT_ID, account_id_db);
+
+                            Ok(access_token)
+                        })
+                        .collect::<color_eyre::Result<Vec<_>>>()?;
+
+                    if !existing_root_account_access_tokens.is_empty() {
+                        info!(
+                            num = existing_root_account_access_tokens.len(),
+                            "Deleting previous root account access tokens"
+                        );
+                    }
+                    for existing in existing_root_account_access_tokens {
+                        access_tokens_rev_table.remove(&(ROOT_ACCOUNT_ID, existing))?;
+                        access_tokens_table.remove(&existing)?;
+                    }
+
+                    access_tokens_rev_table.insert(&(ROOT_ACCOUNT_ID, *access_token), &())?;
+
+                    access_tokens_table.insert(
+                        access_token,
+                        &AccessTokenRecord {
+                            created: Ts::now(),
+                            r#type: AccessTokenType::Root,
+                            account_id: ROOT_ACCOUNT_ID,
+                        },
+                    )?;
                 }
 
-                let account_id = AccountId::generate();
-                let access_token = AccessToken::generate();
-
-                tx.open_table(&TABLE_ROOT_ACCOUNT)?
-                    .insert(&account_id, &())?;
-
-                tx.open_table(&TABLE_ACCOUNTS)?
-                    .insert(&account_id, &AccountRecord { created: Ts::now() })?;
-
-                tx.open_table(&TABLE_ACCESS_TOKENS)?.insert(
-                    &access_token,
-                    &AccessTokenRecord {
-                        created: Ts::now(),
-                        r#type: AccessTokenType::Root,
-                        account_id,
-                    },
-                )?;
-
-                let mut file = std::fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .mode(0o600)
-                    .open(creds_file)?;
-
-                serde_json::to_writer_pretty(
-                    &mut file,
-                    &json! {
-                        {
-                            "account-id": account_id,
-                            "access-token": access_token,
-                        }
-                    },
-                )?;
-
-                Ok(Some((account_id, access_token)))
+                Ok(())
             })
             .await
     }

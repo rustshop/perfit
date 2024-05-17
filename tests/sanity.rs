@@ -1,48 +1,111 @@
-use std::io;
-use std::time::Duration;
+mod common;
 
 use color_eyre::Result;
 use insta_cmd::get_cargo_bin;
-use perfitd::opts;
+use serde::Deserialize;
 use tracing::info;
+
+use crate::common::PerfitdFixture;
+
+trait ExpressionExt {
+    fn read_json<T>(self) -> Result<T>
+    where
+        T: for<'de> Deserialize<'de>;
+
+    fn read_json_value(self) -> Result<serde_json::Value>
+    where
+        Self: Sized,
+    {
+        self.read_json()
+    }
+}
+
+impl ExpressionExt for duct::Expression {
+    fn read_json<T>(self) -> Result<T>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let s = self.stdout_capture().read()?;
+        let v: T = serde_json::from_str(&s)?;
+        Ok(v)
+    }
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn sanity() -> Result<()> {
-    let _ = tracing_subscriber::fmt().with_writer(io::stderr).try_init();
+    common::init_logging()?;
 
-    let test_dir = tempfile::tempdir()?;
+    let fixture = PerfitdFixture::new().await?;
 
-    let opts = opts::Opts {
-        listen: "[::1]:0".into(),
-        db: test_dir.path().join("db.redb"),
-        ..Default::default()
-    };
+    let addr = fixture.addr()?;
 
-    let server = perfitd::Server::init(opts).await?;
+    let root_access_token = fixture.root_access_token_str();
 
-    let addr = server.addr()?;
+    fixture
+        .run(async {
+            info!("Staring test");
+            let bin = get_cargo_bin("perfit");
+            tokio::task::spawn_blocking(move || -> Result<_> {
+                #[derive(Deserialize)]
+                struct NewAccount {
+                    #[allow(unused)]
+                    account_id: String,
+                    access_token: String,
+                }
+                let NewAccount {
+                    account_id: _,
+                    access_token,
+                } = duct::cmd!(&bin, "account", "new")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", root_access_token)
+                    .read_json()?;
 
-    info!(%addr, "Server port");
+                let metric_id: String = duct::cmd!(&bin, "metric", "new")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", &access_token)
+                    .read_json()?;
 
-    let test = async {
-        info!("Staring test");
-        let bin = get_cargo_bin("perfit");
-        tokio::task::spawn_blocking(move || {
-            duct::cmd!(bin, "post", "--metric", "x", "11")
-                .env("PERFIT_SERVER", format!("http://{}", addr))
-                .run()
+                insta::assert_yaml_snapshot!("no data points", duct::cmd!(&bin, "metric", "get")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", &access_token)
+                    .env("PERFIT_METRIC", &metric_id)
+                    .read_json_value()?, {
+                    "[].t" => "[ts]",
+                });
+                duct::cmd!(&bin, "post", "11")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", &access_token)
+                    .env("PERFIT_METRIC", &metric_id)
+                    .run()?;
+
+                insta::assert_yaml_snapshot!("one data point", duct::cmd!(&bin, "metric", "get")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", &access_token)
+                    .env("PERFIT_METRIC", &metric_id)
+                    .read_json_value()?, {
+                    "[].t" => "[ts]",
+                });
+
+                duct::cmd!(&bin, "run", "sleep", "2")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", &access_token)
+                    .env("PERFIT_METRIC", &metric_id)
+                    .run()?;
+
+                insta::assert_yaml_snapshot!("two data point", duct::cmd!(&bin, "metric", "get")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", &access_token)
+                    .env("PERFIT_METRIC", &metric_id)
+                    .read_json_value()?, {
+                        "[].t" => "[ts]",
+                        "[1].v" => "[value]",
+                    }
+                );
+
+                Ok(())
+            })
+            .await??;
+            Ok(())
         })
-        .await??;
-        tokio::time::sleep(Duration::from_secs(1)).await;
-        Ok(())
-    };
-
-    tokio::select! {
-        res = test => {
-            res
-        }
-        _ = server.run() => {
-            Err(color_eyre::eyre::format_err!("server failed?"))
-        },
-    }
+        .await
 }

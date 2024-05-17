@@ -8,29 +8,30 @@ use color_eyre::Result;
 use redb_bincode::{ReadTransaction, TableDefinition, WriteTransaction};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+use uuid::Uuid;
 
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
 use crate::models::{AccountId, MetricId, MetricInternalId};
 use crate::routes::error::UserRequestError;
 
-pub const TABLE_ROOT_ACCOUNT: TableDefinition<'_, AccountId, ()> =
-    TableDefinition::new("root-account");
-
 pub const TABLE_ACCOUNTS: TableDefinition<'_, AccountId, AccountRecord> =
     TableDefinition::new("accounts");
 
 pub const TABLE_ACCESS_TOKENS: TableDefinition<'_, AccessToken, AccessTokenRecord> =
-    TableDefinition::new("access-tokens");
+    TableDefinition::new("access_tokens");
+
+pub const TABLE_ACCESS_TOKENS_REV: TableDefinition<'_, (AccountId, AccessToken), ()> =
+    TableDefinition::new("access_tokens_rev");
 
 pub const TABLE_METRICS: TableDefinition<'_, MetricId, MetricRecord> =
     TableDefinition::new("metrics");
 
-pub const TABLE_METRIC_REV: TableDefinition<'_, MetricInternalId, MetricId> =
-    TableDefinition::new("metrics-rev");
+pub const TABLE_METRICS_REV: TableDefinition<'_, MetricInternalId, MetricId> =
+    TableDefinition::new("metrics_rev");
 
 pub const TABLE_DATA_POINTS: TableDefinition<'_, DataPoint, DataPointRecord> =
-    TableDefinition::new("data-points");
+    TableDefinition::new("data_points");
 
 #[derive(Encode, Decode, Clone, Copy)]
 pub struct DataPoint {
@@ -56,6 +57,8 @@ pub struct AccessTokenRecord {
     pub account_id: AccountId,
     pub r#type: AccessTokenType,
 }
+
+pub const ROOT_ACCOUNT_ID: AccountId = AccountId::from_const(Uuid::from_u128(0));
 
 impl AccessTokenRecord {
     pub fn ensure_can_create_tokens(&self, account_id: AccountId) -> Result<()> {
@@ -90,7 +93,7 @@ impl DataPointValue {
 }
 
 /// Metadata attached to a [`DataPoint`]
-#[derive(Encode, Decode, Serialize, Debug, Clone)]
+#[derive(Encode, Decode, Serialize, Debug, Clone, Default)]
 pub struct DataPointMetadata(String);
 
 impl DataPointMetadata {
@@ -102,6 +105,9 @@ impl DataPointMetadata {
             bail!("Metadata too long");
         }
         Ok(Self(s.into_owned()))
+    }
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -136,6 +142,24 @@ pub struct DataPointRecord {
 #[derive(Debug)]
 pub struct Database(redb_bincode::Database);
 
+impl Database {
+    pub async fn init(self) -> Result<Self> {
+        self.write_with(|dbtx| {
+            dbtx.open_table(&TABLE_ACCOUNTS)?;
+            dbtx.open_table(&TABLE_ACCESS_TOKENS)?;
+            dbtx.open_table(&TABLE_ACCESS_TOKENS_REV)?;
+            dbtx.open_table(&TABLE_METRICS)?;
+            dbtx.open_table(&TABLE_METRICS_REV)?;
+            dbtx.open_table(&TABLE_DATA_POINTS)?;
+
+            Ok(())
+        })
+        .await?;
+
+        Ok(self)
+    }
+}
+
 impl From<redb_bincode::Database> for Database {
     fn from(db: redb_bincode::Database) -> Self {
         Self(db)
@@ -169,8 +193,11 @@ impl Database {
         })
     }
 
-    #[instrument]
-    pub fn open(path: &PathBuf) -> Result<Database> {
-        Ok(Self::from(redb_bincode::Database::create(path)?))
+    #[instrument(skip_all)]
+    pub async fn open(path: impl Into<PathBuf>) -> Result<Database> {
+        let path = path.into();
+        let create =
+            tokio::task::spawn_blocking(move || redb_bincode::Database::create(path)).await??;
+        Self::from(create).init().await
     }
 }

@@ -57,7 +57,7 @@
                 meta.mainProgram = "perfitd";
 
                 preBuild = ''
-                  export PERFIT_BUILD_OUT_DIR=$out/share
+                  export PERFITD_BUILD_OUT_DIR=$out/share
                 '';
               };
 
@@ -65,7 +65,7 @@
                 meta.mainProgram = "perfit";
 
                 preBuild = ''
-                  export PERFIT_BUILD_OUT_DIR=$out/share
+                  export PERFITD_BUILD_OUT_DIR=$out/share
                 '';
               };
             });

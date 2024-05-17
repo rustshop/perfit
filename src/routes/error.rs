@@ -52,12 +52,13 @@ pub struct UserErrorResponse {
 impl IntoResponse for &UserRequestError {
     fn into_response(self) -> Response {
         let (status_code, message) = match self {
-            UserRequestError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
+            UserRequestError::Unauthorized | UserRequestError::InvalidAuthorizationToken => {
+                (StatusCode::UNAUTHORIZED, self.to_string())
+            }
             UserRequestError::AssertionError
             | UserRequestError::InvalidPath
             | UserRequestError::MissingAuthorizationToken
             | UserRequestError::MalformedAuthoraizationToken
-            | UserRequestError::InvalidAuthorizationToken
             | UserRequestError::MetricNotFound(_) => (StatusCode::BAD_REQUEST, self.to_string()),
             UserRequestError::FormatNotSupported => (StatusCode::NOT_FOUND, self.to_string()),
         };

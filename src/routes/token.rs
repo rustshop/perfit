@@ -6,7 +6,7 @@ use tracing::instrument;
 
 use super::auth::Auth;
 use super::error::RequestResult;
-use crate::db::{AccessTokenRecord, AccessTokenType, TABLE_ACCESS_TOKENS};
+use crate::db::{AccessTokenRecord, AccessTokenType, TABLE_ACCESS_TOKENS, TABLE_ACCESS_TOKENS_REV};
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
 use crate::models::AccountId;
@@ -39,12 +39,15 @@ pub async fn token_new(
                 },
             )?;
 
+            tx.open_table(&TABLE_ACCESS_TOKENS_REV)?
+                .insert(&(account_id, token), &())?;
+
             Ok(())
         })
         .await?;
 
     Ok(Json(json!({
-        "account-id": account_id,
-        "access-token": token,
+        "account_id": account_id,
+        "access_token": token,
     })))
 }

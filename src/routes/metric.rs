@@ -14,7 +14,7 @@ use super::auth::Auth;
 use super::{render_svg, RequestResult, UserRequestError, MAX_DATA_POINTS_LIMIT};
 use crate::db::{
     DataPoint, DataPointMetadata, DataPointRecord, DataPointValue, MetricRecord, TABLE_DATA_POINTS,
-    TABLE_METRICS, TABLE_METRIC_REV,
+    TABLE_METRICS, TABLE_METRICS_REV,
 };
 use crate::fragment::render_chart_form;
 use crate::models::ts::Ts;
@@ -30,7 +30,7 @@ pub async fn metric_new(
     let metric_id = state
         .db
         .write_with(|tx| {
-            let mut table_metric_rev = tx.open_table(&TABLE_METRIC_REV)?;
+            let mut table_metric_rev = tx.open_table(&TABLE_METRICS_REV)?;
             let new_internal_id = table_metric_rev
                 .last()?
                 .map(|(k, _v)| k.value().next())
@@ -58,7 +58,7 @@ pub async fn metric_new(
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MetricPostPayload {
     value: DataPointValue,
-    metadata: DataPointMetadata,
+    metadata: Option<DataPointMetadata>,
 }
 
 #[instrument]
@@ -83,7 +83,10 @@ pub async fn metric_post(
                     metric_internal_id: metric_record.internal_id,
                     ts,
                 },
-                &DataPointRecord { value, metadata },
+                &DataPointRecord {
+                    value,
+                    metadata: metadata.unwrap_or_default(),
+                },
             )?;
 
             Ok(ts)
@@ -173,6 +176,7 @@ pub async fn metric_get_default_type(
 pub struct RawMetricGetBodyRecord {
     t: Ts,
     v: DataPointValue,
+    #[serde(skip_serializing_if = "DataPointMetadata::is_empty")]
     m: DataPointMetadata,
 }
 

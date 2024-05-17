@@ -1,7 +1,7 @@
 mod asset_cache;
 mod db;
 mod fragment;
-mod models;
+pub mod models;
 pub mod opts;
 mod routes;
 mod serde;
@@ -31,14 +31,25 @@ use crate::state::AppState;
 pub struct Server {
     opts: opts::Opts,
     listener: tokio::net::TcpListener,
+    state: Arc<AppState>,
 }
 
 impl Server {
     pub async fn init(opts: opts::Opts) -> Result<Server> {
+        let assets = AssetCache::load_files(&opts.assets_dir).await;
         let listener = tokio::net::TcpListener::bind(opts.listen.clone()).await?;
+        let db = Database::open(&opts.db).await?;
+        let state = Arc::new(AppState { db, assets });
 
+        if let Some(access_token) = opts.root_access_token {
+            state.init_root_account(&access_token).await?;
+        }
         info!("Listening on {}", listener.local_addr()?);
-        Ok(Self { listener, opts })
+        Ok(Self {
+            listener,
+            opts,
+            state,
+        })
     }
 
     // TODO: move more stuff to init
@@ -62,17 +73,9 @@ impl Server {
             }
         });
 
-        let db = Database::open(&self.opts.db)?;
-        let assets = AssetCache::load_files(&self.opts.assets_dir).await;
-        let state = Arc::new(AppState { db, assets });
-
-        state
-            .init_root_account(&self.opts.db.with_extension("creds"))
-            .await?;
-
         let router = Router::new()
-            .merge(routes::route_handler(state.clone()))
-            .nest("/assets", routes::static_file_handler(state.clone()));
+            .merge(routes::route_handler(self.state.clone()))
+            .nest("/assets", routes::static_file_handler(self.state.clone()));
 
         info!("Starting server");
         axum::serve(

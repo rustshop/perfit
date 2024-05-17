@@ -13,12 +13,22 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub struct AccessToken([u8; 32]);
 
 impl AccessToken {
+    pub const ZERO: Self = Self([0; 32]);
+    pub const LAST: Self = Self([0xff; 32]);
+
     pub fn generate() -> Self {
         let mut bytes = [0u8; 32];
         rand::thread_rng().fill_bytes(&mut bytes);
         Self(bytes)
     }
 }
+
+impl fmt::Display for AccessToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&URL_SAFE_NO_PAD.encode(self.0))
+    }
+}
+
 impl FromStr for AccessToken {
     type Err = color_eyre::eyre::Error;
 
@@ -39,8 +49,7 @@ impl Serialize for AccessToken {
     where
         S: Serializer,
     {
-        let base64_string = URL_SAFE_NO_PAD.encode(self.0);
-        serializer.serialize_str(&base64_string)
+        serializer.serialize_str(&self.to_string())
     }
 }
 

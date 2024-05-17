@@ -11,9 +11,10 @@ fn main() {
 
     // This should make it possible for distros to override default location.
     let out_dir = PathBuf::from(
-        std::env::var_os("PERFIT_BUILD_OUT_DIR").unwrap_or_else(|| env::var_os("OUT_DIR").unwrap()),
+        std::env::var_os("PERFITD_BUILD_OUT_DIR")
+            .unwrap_or_else(|| env::var_os("OUT_DIR").unwrap()),
     );
-    println!("cargo::rustc-env=PERFIT_SHARE_DIR={}", out_dir.display());
+    println!("cargo::rustc-env=PERFITD_SHARE_DIR={}", out_dir.display());
 
     let assets_out_dir = out_dir.join("assets");
 

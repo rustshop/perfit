@@ -42,7 +42,7 @@ pub async fn account_new(
         .await?;
 
     Ok(Json(json!({
-        "account-id": account_id,
-        "access-token": admin_token,
+        "account_id": account_id,
+        "access_token": admin_token,
     })))
 }

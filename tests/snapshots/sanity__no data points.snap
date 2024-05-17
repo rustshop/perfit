@@ -1,0 +1,5 @@
+---
+source: tests/sanity.rs
+expression: "duct::cmd!(&bin, \"metric\",\n                        \"get\").env(\"PERFIT_SERVER\",\n                    format!(\"http://{}\",\n                        addr)).env(\"PERFIT_ACCESS_TOKEN\",\n                &access_token).env(\"PERFIT_METRIC\",\n            &metric_id).read_json_value()?"
+---
+[]

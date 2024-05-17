@@ -15,15 +15,18 @@ pub struct ServerArgs {
     #[arg(long, env = "PERFIT_SERVER")]
     pub server: Url,
 
-    #[arg(long, env = "PERFIT_AUTH_TOKEN")]
-    pub auth_token: String,
+    #[arg(long, env = "PERFIT_ACCESS_TOKEN")]
+    pub access_token: String,
+}
+
+#[derive(Args, Clone, Debug)]
+pub struct MetricArgs {
+    #[arg(long, env = "PERFIT_METRIC")]
+    pub metric: String,
 }
 
 #[derive(Args, Clone, Debug)]
 pub struct DataPointArgs {
-    #[arg(long, env = "PERFIT_METRIC")]
-    pub metric: String,
-
     #[arg(long, env = "PERFIT_METADATA")]
     pub metadata: Option<String>,
 }
@@ -36,6 +39,9 @@ pub enum Command {
     Run {
         #[command(flatten)]
         server_args: ServerArgs,
+
+        #[command(flatten)]
+        metric_args: MetricArgs,
 
         #[command(flatten)]
         data_point_args: DataPointArgs,
@@ -58,6 +64,9 @@ pub enum Command {
         server_args: ServerArgs,
 
         #[command(flatten)]
+        metric_args: MetricArgs,
+
+        #[command(flatten)]
         data_point_args: DataPointArgs,
 
         data_point: f32,
@@ -68,6 +77,9 @@ pub enum Command {
 
     #[command(subcommand)]
     Metric(MetricCommand),
+
+    #[command(subcommand)]
+    Token(TokenCommand),
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -84,4 +96,17 @@ pub enum MetricCommand {
         #[command(flatten)]
         server_args: ServerArgs,
     },
+
+    Get {
+        #[command(flatten)]
+        server_args: ServerArgs,
+
+        #[command(flatten)]
+        metric_args: MetricArgs,
+    },
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum TokenCommand {
+    Gen,
 }

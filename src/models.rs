@@ -13,8 +13,23 @@ macro_rules! define_uuidv4_newtype {
         pub struct $name(Uuid);
 
         impl $name {
+            #[allow(dead_code)]
+            pub const ZERO: Self = Self(Uuid::from_u128(0));
+            #[allow(dead_code)]
+            pub const LAST: Self = Self(Uuid::from_u128(0xffffffff_ffffffff_ffffffff_ffffffff));
+
             pub fn generate() -> Self {
                 Self(Uuid::new_v4())
+            }
+
+            pub const fn from_const(v: Uuid) -> Self {
+                Self(v)
+            }
+        }
+
+        impl From<Uuid> for $name {
+            fn from(v: Uuid) -> Self {
+                Self(v)
             }
         }
 
