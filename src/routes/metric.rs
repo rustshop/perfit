@@ -78,10 +78,30 @@ pub async fn metric_post(
 
             let ts = Ts::now();
 
-            tx.open_table(&TABLE_DATA_POINTS)?.insert(
+            let mut data_points_table = tx.open_table(&TABLE_DATA_POINTS)?;
+
+            let idx = data_points_table
+                .range(
+                    &DataPoint {
+                        metric_internal_id: metric_record.internal_id,
+                        ts,
+                        idx: 0,
+                    }..&DataPoint {
+                        metric_internal_id: metric_record.internal_id,
+                        ts: ts.inc(),
+                        idx: 0,
+                    },
+                )?
+                .next_back()
+                .transpose()?
+                .map(|(k, _v)| k.value().idx + 1)
+                .unwrap_or_default();
+
+            data_points_table.insert(
                 &DataPoint {
                     metric_internal_id: metric_record.internal_id,
                     ts,
+                    idx,
                 },
                 &DataPointRecord {
                     value,
@@ -120,16 +140,19 @@ impl MetricOpts {
         DataPoint {
             metric_internal_id,
             ts: self.start.map(Ts::from).unwrap_or(Ts::ZERO),
+            idx: 0,
         }
             ..self
                 .end
                 .map(|t| DataPoint {
                     metric_internal_id,
                     ts: Ts::from(t),
+                    idx: 0,
                 })
                 .unwrap_or(DataPoint {
                     metric_internal_id: metric_internal_id.next(),
                     ts: Ts::ZERO,
+                    idx: 0,
                 })
     }
 }
@@ -151,8 +174,18 @@ pub async fn get_metric(
             let data_points: Vec<_> = tx
                 .open_table(&TABLE_DATA_POINTS)?
                 .range(opts.key_range(metric_record.internal_id))?
+                .enumerate()
+                // We don't want ever to stop at the boundary of multiple data points for the same
+                // second so instead of a simple `.take(limit), we need something
+                // more complex
+                .take_while(|(i, d)| {
+                    i < &MAX_DATA_POINTS_LIMIT
+                        || d.as_ref()
+                            .map(|(k, _v)| k.value().idx != 0)
+                            .unwrap_or_default()
+                })
+                .map(|(_, r)| r)
                 .and_then_ok(|(k, v)| Ok((k.value().ts, v.value())))
-                .take(MAX_DATA_POINTS_LIMIT)
                 .collect::<Result<_, _>>()?;
 
             Ok(data_points)

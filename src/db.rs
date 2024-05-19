@@ -37,6 +37,7 @@ pub const TABLE_DATA_POINTS: TableDefinition<'_, DataPoint, DataPointRecord> =
 pub struct DataPoint {
     pub metric_internal_id: MetricInternalId,
     pub ts: Ts,
+    pub idx: u64,
 }
 
 #[derive(Debug, Encode, Decode, Clone, Copy)]

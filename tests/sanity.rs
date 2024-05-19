@@ -86,13 +86,19 @@ async fn sanity() -> Result<()> {
                     "[].t" => "[ts]",
                 });
 
-                duct::cmd!(&bin, "run", "sleep", "2")
+                duct::cmd!(&bin, "run", "sleep", ".01")
                     .env("PERFIT_SERVER", format!("http://{}", addr))
                     .env("PERFIT_ACCESS_TOKEN", &access_token)
                     .env("PERFIT_METRIC", &metric_id)
                     .run()?;
 
-                insta::assert_yaml_snapshot!("two data point", duct::cmd!(&bin, "metric", "get")
+                duct::cmd!(&bin, "post", "12")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", &access_token)
+                    .env("PERFIT_METRIC", &metric_id)
+                    .run()?;
+
+                insta::assert_yaml_snapshot!("three data points", duct::cmd!(&bin, "metric", "get")
                     .env("PERFIT_SERVER", format!("http://{}", addr))
                     .env("PERFIT_ACCESS_TOKEN", &access_token)
                     .env("PERFIT_METRIC", &metric_id)

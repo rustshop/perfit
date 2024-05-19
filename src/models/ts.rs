@@ -46,6 +46,10 @@ impl Ts {
         time::OffsetDateTime::from_unix_timestamp(self.to_absolute_secs() as i64)
             .expect("can't fail")
     }
+
+    pub fn inc(self) -> Ts {
+        Self(self.0 + 1)
+    }
 }
 
 pub trait DateTimeExt {

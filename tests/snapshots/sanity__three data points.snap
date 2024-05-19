@@ -6,3 +6,5 @@ expression: "duct::cmd!(&bin, \"metric\",\n                        \"get\").env(
   v: 11
 - t: "[ts]"
   v: "[value]"
+- t: "[ts]"
+  v: 12
