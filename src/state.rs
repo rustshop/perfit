@@ -73,11 +73,11 @@ impl AppState {
     }
 
     pub fn svg_chart_url(&self, metric_id: MetricId) -> String {
-        format!("/s/{}/svg", metric_id)
+        format!("/m/{}/svg", metric_id)
     }
 
     pub fn html_chart_url(&self, metric_id: MetricId) -> String {
-        format!("/s/{}", metric_id)
+        format!("/m/{}", metric_id)
     }
 }
 
