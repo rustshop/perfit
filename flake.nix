@@ -10,6 +10,11 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, flakebox }:
+    {
+      nixosModules = {
+        perfitd = import ./nix/modules/perfitd.nix;
+      };
+    } //
     flake-utils.lib.eachDefaultSystem (system:
       let
         projectName = "perfit";

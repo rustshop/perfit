@@ -18,11 +18,11 @@ fn default_perfit_assets_dir() -> OsString {
 #[command(author, version, about, long_about = None)]
 pub struct Opts {
     /// Listen address
-    #[arg(long, short, default_value = "[::1]:3000")]
+    #[arg(long, short, default_value = "[::1]:5050", env = "PERFITD_LISTEN")]
     pub listen: String,
 
     /// Database file path
-    #[arg(long, default_value = "db.redb")]
+    #[arg(long, default_value = "perfitd.redb", env = "PERFITD_DB_PATH")]
     pub db: PathBuf,
 
     /// Cors origin settings
