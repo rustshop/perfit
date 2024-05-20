@@ -28,7 +28,7 @@ let
           RUST_BACKTRACE = "1";
         };
         example = {
-          RUST_LOG = "info,fm=debug";
+          RUST_LOG = "info";
           RUST_BACKTRACE = "1";
         };
       };
@@ -120,6 +120,9 @@ in
           nameValuePair "perfitd-${perfitdName}" (
             let
               startScript = pkgs.writeShellScript "perfitd-start" (
+                ''
+                  set -euo pipefail
+                '' +
                 (if cfg.rootAccessTokenFile != null then
                   ''
                     secret=$(${pkgs.coreutils}/bin/head -n 1 "${cfg.rootAccessTokenFile}")
