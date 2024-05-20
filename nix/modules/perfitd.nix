@@ -126,7 +126,7 @@ in
                 (if cfg.rootAccessTokenFile != null then
                   ''
                     secret=$(${pkgs.coreutils}/bin/head -n 1 "${cfg.rootAccessTokenFile}")
-                    PERFITD_ROOT_ACCESS_TOKEN="''${secret}"
+                    export PERFITD_ROOT_ACCESS_TOKEN="''${secret}"
                   ''
                 else
                   "") +
