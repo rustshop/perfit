@@ -23,7 +23,7 @@ use tower_http::compression::predicate::SizeAbove;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use tower_http::CompressionLevel;
-use tracing::info;
+use tracing::{debug, info};
 
 use crate::asset_cache::AssetCache;
 use crate::state::AppState;
@@ -69,7 +69,7 @@ impl Server {
             std::thread::sleep(interval);
             governor_limiter.retain_recent();
             if 0 < governor_limiter.len() {
-                tracing::info!("Rate limiting storage size: {}", governor_limiter.len());
+                debug!("Rate limiting storage size: {}", governor_limiter.len());
             }
         });
 
