@@ -4,7 +4,6 @@ mod fragment;
 pub mod models;
 pub mod opts;
 mod routes;
-mod serde;
 mod state;
 
 use std::net::SocketAddr;

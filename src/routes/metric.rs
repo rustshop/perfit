@@ -20,7 +20,6 @@ use crate::db::{
 use crate::fragment::render_chart_form;
 use crate::models::ts::Ts;
 use crate::models::{MetricId, MetricInternalId};
-use crate::serde::deserialize_opt_f64_from_empty_string;
 use crate::state::SharedAppState;
 
 #[instrument]
@@ -126,17 +125,17 @@ pub struct MetricOpts {
     pub x_label: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub y_label: String,
-    #[serde(with = "crate::serde::custom_rfc3339_option", default)]
+    #[serde(with = "time::serde::rfc3339::option", default)]
     pub start_fixed: Option<OffsetDateTime>,
-    #[serde(with = "crate::serde::custom_rfc3339_option", default)]
+    #[serde(with = "time::serde::rfc3339::option", default)]
     pub end_fixed: Option<OffsetDateTime>,
     #[serde(with = "humantime_serde::option", default)]
     pub start_rel: Option<Duration>,
     #[serde(with = "humantime_serde::option", default)]
     pub end_rel: Option<Duration>,
-    #[serde(deserialize_with = "deserialize_opt_f64_from_empty_string", default)]
+    #[serde(default)]
     pub min: Option<f64>,
-    #[serde(deserialize_with = "deserialize_opt_f64_from_empty_string", default)]
+    #[serde(default)]
     pub max: Option<f64>,
 }
 
