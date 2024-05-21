@@ -7,13 +7,15 @@ use color_eyre::eyre::bail;
 use color_eyre::Result;
 use redb_bincode::{ReadTransaction, TableDefinition, WriteTransaction};
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
+use tracing::{debug, info, instrument};
 use uuid::Uuid;
 
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
 use crate::models::{AccountId, MetricId, MetricInternalId};
 use crate::routes::error::UserRequestError;
+
+pub const TABLE_DB_VER: TableDefinition<'_, (), u64> = TableDefinition::new("db-ver");
 
 pub const TABLE_ACCOUNTS: TableDefinition<'_, AccountId, AccountRecord> =
     TableDefinition::new("accounts");
@@ -144,6 +146,8 @@ pub struct DataPointRecord {
 pub struct Database(redb_bincode::Database);
 
 impl Database {
+    const DB_VER: u64 = 0;
+
     pub async fn init(self) -> Result<Self> {
         self.write_with(|dbtx| {
             dbtx.open_table(&TABLE_ACCOUNTS)?;
@@ -153,11 +157,35 @@ impl Database {
             dbtx.open_table(&TABLE_METRICS_REV)?;
             dbtx.open_table(&TABLE_DATA_POINTS)?;
 
+            Self::handle_db_ver_migrations(dbtx)?;
+
             Ok(())
         })
         .await?;
 
         Ok(self)
+    }
+    fn handle_db_ver_migrations(dbtx: &WriteTransaction) -> Result<(), color_eyre::eyre::Error> {
+        let mut table_db_ver = dbtx.open_table(&TABLE_DB_VER)?;
+
+        let Some(cur_db_ver) = table_db_ver.first()?.map(|g| g.1.value()) else {
+            info!("Initializing empty database");
+            table_db_ver.insert(&(), &Self::DB_VER)?;
+
+            return Ok(());
+        };
+
+        debug!(db_ver = cur_db_ver, "Checking db version");
+        if Self::DB_VER < cur_db_ver {
+            bail!(
+                "Db version {cur_db_ver} higher than code version {}",
+                Self::DB_VER
+            );
+        }
+
+        // migration code will go here
+
+        Ok(())
     }
 }
 
