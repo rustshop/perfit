@@ -38,6 +38,18 @@ pub struct Opts {
     /// Can be generated with `perfit token gen`
     #[arg(long, env = "PERFITD_ROOT_ACCESS_TOKEN")]
     pub root_access_token: Option<AccessToken>,
+
+    /// Rate limit replenish token every N microseconds
+    #[arg(
+        long,
+        default_value = "500000",
+        env = "PERFITD_RATE_LIMIT_REPLENISH_MICROS"
+    )]
+    pub rate_limit_replenish_micros: u64,
+
+    /// Rate limit burst size
+    #[arg(long, default_value = "60", env = "PERFITD_RATE_LIMIT_BURST")]
+    pub rate_limit_burst: u32,
 }
 
 impl Default for Opts {
@@ -48,6 +60,8 @@ impl Default for Opts {
             cors_origin: None,
             assets_dir: default_perfit_assets_dir().into(),
             root_access_token: None,
+            rate_limit_replenish_micros: 500000,
+            rate_limit_burst: 60,
         }
     }
 }
