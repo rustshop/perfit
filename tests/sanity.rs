@@ -31,8 +31,15 @@ impl ExpressionExt for duct::Expression {
     }
 }
 
+#[derive(Deserialize)]
+struct NewAccountOutput {
+    #[allow(unused)]
+    account_id: String,
+    access_token: String,
+}
+
 #[tokio::test(flavor = "multi_thread")]
-async fn sanity() -> Result<()> {
+async fn sanity_post_data_points() -> Result<()> {
     common::init_logging()?;
 
     let fixture = PerfitdFixture::new().await?;
@@ -46,13 +53,7 @@ async fn sanity() -> Result<()> {
             info!("Staring test");
             let bin = get_cargo_bin("perfit");
             tokio::task::spawn_blocking(move || -> Result<_> {
-                #[derive(Deserialize)]
-                struct NewAccount {
-                    #[allow(unused)]
-                    account_id: String,
-                    access_token: String,
-                }
-                let NewAccount {
+                let NewAccountOutput {
                     account_id: _,
                     access_token,
                 } = duct::cmd!(&bin, "account", "new")
@@ -107,6 +108,45 @@ async fn sanity() -> Result<()> {
                         "[1].v" => "[value]",
                     }
                 );
+
+                Ok(())
+            })
+            .await??;
+            Ok(())
+        })
+        .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn sanity_user_mgmt() -> Result<()> {
+    common::init_logging()?;
+
+    let fixture = PerfitdFixture::new().await?;
+
+    let addr = fixture.addr()?;
+
+    let root_access_token = fixture.root_access_token_str();
+
+    fixture
+        .run(async {
+            info!("Staring test");
+            let bin = get_cargo_bin("perfit");
+            tokio::task::spawn_blocking(move || -> Result<_> {
+                let NewAccountOutput {
+                    account_id: _,
+                    access_token,
+                } = duct::cmd!(&bin, "account", "new")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", root_access_token)
+                    .read_json()?;
+
+                let NewAccountOutput {
+                    account_id: _,
+                    access_token: _,
+                } = duct::cmd!(&bin, "token", "new")
+                    .env("PERFIT_SERVER", format!("http://{}", addr))
+                    .env("PERFIT_ACCESS_TOKEN", access_token)
+                    .read_json()?;
 
                 Ok(())
             })

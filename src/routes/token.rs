@@ -6,9 +6,10 @@ use tracing::instrument;
 
 use super::auth::Auth;
 use super::error::RequestResult;
-use crate::db::{AccessTokenRecord, AccessTokenType, TABLE_ACCESS_TOKENS, TABLE_ACCESS_TOKENS_REV};
+use crate::db::{AccessTokenRecord, TABLE_ACCESS_TOKENS, TABLE_ACCESS_TOKENS_REV};
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
+use crate::models::AccessTokenType;
 use crate::state::SharedAppState;
 
 #[derive(Deserialize, Debug)]
@@ -22,7 +23,7 @@ pub async fn token_new(
     Auth(auth): Auth,
     Json(payload): Json<TokenNewOpts>,
 ) -> RequestResult<Json<serde_json::Value>> {
-    auth.ensure_can_create_tokens(payload.r#type)?;
+    auth.ensure_can_create_tokens(auth.account_id, payload.r#type)?;
     let token = AccessToken::generate();
 
     let account_id = auth.account_id;

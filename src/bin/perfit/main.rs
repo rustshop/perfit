@@ -6,8 +6,10 @@ use color_eyre::eyre::bail;
 use color_eyre::Result;
 use opts::{MetricArgs, ServerArgs};
 use perfitd::models::access_token::AccessToken;
+use perfitd::models::AccessTokenType;
 use reqwest::header::AUTHORIZATION;
 use reqwest::Method;
+use serde::Serialize;
 use serde_json::json;
 
 use crate::opts::Opts;
@@ -69,8 +71,11 @@ async fn main() -> Result<()> {
         opts::Command::Token(opts::TokenCommand::Gen) => {
             println!("{}", AccessToken::generate())
         }
-        opts::Command::Token(opts::TokenCommand::New { server_args }) => {
-            token_new(&server_args).await?;
+        opts::Command::Token(opts::TokenCommand::New {
+            server_args,
+            r#type,
+        }) => {
+            token_new(&server_args, &r#type).await?;
         }
     }
 
@@ -100,6 +105,35 @@ async fn make_request(
     Ok(response)
 }
 
+async fn make_request_json<T>(
+    server_args: &ServerArgs,
+    method: reqwest::Method,
+    path: &str,
+    payload: &T,
+) -> Result<reqwest::Response>
+where
+    T: Serialize + ?Sized,
+{
+    let client = reqwest::Client::new();
+    let response = client
+        .request(method, server_args.server.join(path)?)
+        .header(
+            AUTHORIZATION,
+            format!("Bearer {}", server_args.access_token),
+        )
+        .json(payload)
+        .send()
+        .await?;
+    let status = response.status();
+    if !status.is_success() {
+        bail!(
+            "Http request failed: {status}: {}",
+            status.canonical_reason().unwrap_or("unknown response code")
+        )
+    }
+    Ok(response)
+}
+
 async fn account_new(server_args: &ServerArgs) -> Result<()> {
     let response = make_request(server_args, Method::PUT, "a/", "").await?;
     println!("{}", response.text().await?);
@@ -114,8 +148,17 @@ async fn metric_new(server_args: &ServerArgs) -> Result<()> {
     Ok(())
 }
 
-async fn token_new(server_args: &ServerArgs) -> Result<()> {
-    let response = make_request(server_args, Method::PUT, "t/", "").await?;
+async fn token_new(server_args: &ServerArgs, r#type: &AccessTokenType) -> Result<()> {
+    let response = make_request_json(
+        server_args,
+        Method::PUT,
+        "t/",
+        &json! ({
+            "type": r#type,
+        }),
+    )
+    .await?;
+
     println!("{}", response.text().await?);
 
     Ok(())
@@ -140,30 +183,16 @@ async fn send_data_point(
     data_point_args: &opts::DataPointArgs,
     value: f32,
 ) -> Result<()> {
-    let client = reqwest::Client::new();
-    let response = client
-        .post(
-            server_args
-                .server
-                .join(&format!("m/{}", metric_args.metric))?,
-        )
-        .header(
-            AUTHORIZATION,
-            format!("Bearer {}", server_args.access_token),
-        )
-        .json(&json! ({
+    make_request_json(
+        server_args,
+        Method::POST,
+        &format!("m/{}", metric_args.metric),
+        &json! ({
             "value": value,
             "metadata": data_point_args.metadata,
-        }))
-        .send()
-        .await?;
-    let status = response.status();
-    if !status.is_success() {
-        bail!(
-            "Http request failed: {status}: {}",
-            status.canonical_reason().unwrap_or("unknown response code")
-        )
-    }
+        }),
+    )
+    .await?;
     Ok(())
 }
 

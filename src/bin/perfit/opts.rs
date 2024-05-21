@@ -1,6 +1,7 @@
 use std::ffi;
 
 use clap::{Args, Parser, Subcommand};
+use perfitd::models::AccessTokenType;
 use url::Url;
 
 #[derive(Parser, Clone, Debug)]
@@ -115,5 +116,8 @@ pub enum TokenCommand {
     New {
         #[command(flatten)]
         server_args: ServerArgs,
+
+        #[arg(long, default_value = "post")]
+        r#type: AccessTokenType,
     },
 }

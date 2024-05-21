@@ -19,6 +19,8 @@ pub enum UserRequestError {
     MalformedAuthoraizationToken,
     #[error("Unauthorized - Invalid Authorization Token")]
     InvalidAuthorizationToken,
+    #[error("Bad Request - Can't use root account")]
+    RootAccountCantBeUsed,
     #[error("Unauthorized")]
     Unauthorized,
     #[error("Format Not Supported")]
@@ -57,6 +59,7 @@ impl IntoResponse for &UserRequestError {
             }
             UserRequestError::AssertionError
             | UserRequestError::InvalidPath
+            | UserRequestError::RootAccountCantBeUsed
             | UserRequestError::MissingAuthorizationToken
             | UserRequestError::MalformedAuthoraizationToken
             | UserRequestError::MetricNotFound(_) => (StatusCode::BAD_REQUEST, self.to_string()),

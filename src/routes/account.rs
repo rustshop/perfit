@@ -4,12 +4,10 @@ use serde_json::json;
 use tracing::instrument;
 
 use super::auth::Auth;
-use crate::db::{
-    AccessTokenRecord, AccessTokenType, AccountRecord, TABLE_ACCESS_TOKENS, TABLE_ACCOUNTS,
-};
+use crate::db::{AccessTokenRecord, AccountRecord, TABLE_ACCESS_TOKENS, TABLE_ACCOUNTS};
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
-use crate::models::AccountId;
+use crate::models::{AccessTokenType, AccountId};
 use crate::routes::error::RequestResult;
 use crate::state::SharedAppState;
 

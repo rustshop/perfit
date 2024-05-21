@@ -4,12 +4,12 @@ use tracing::info;
 
 use crate::asset_cache::AssetCache;
 use crate::db::{
-    AccessTokenRecord, AccessTokenType, AccountRecord, Database, ROOT_ACCOUNT_ID,
-    TABLE_ACCESS_TOKENS, TABLE_ACCESS_TOKENS_REV, TABLE_ACCOUNTS,
+    AccessTokenRecord, AccountRecord, Database, ROOT_ACCOUNT_ID, TABLE_ACCESS_TOKENS,
+    TABLE_ACCESS_TOKENS_REV, TABLE_ACCOUNTS,
 };
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
-use crate::models::MetricId;
+use crate::models::{AccessTokenType, MetricId};
 
 #[derive(Debug)]
 pub struct AppState {

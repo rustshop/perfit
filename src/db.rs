@@ -12,7 +12,7 @@ use uuid::Uuid;
 
 use crate::models::access_token::AccessToken;
 use crate::models::ts::Ts;
-use crate::models::{AccountId, MetricId, MetricInternalId};
+use crate::models::{AccessTokenType, AccountId, MetricId, MetricInternalId};
 use crate::routes::error::UserRequestError;
 
 pub const TABLE_DB_VER: TableDefinition<'_, (), u64> = TableDefinition::new("db-ver");
@@ -47,26 +47,6 @@ pub struct AccountRecord {
     pub created: Ts,
 }
 
-#[derive(Debug, Encode, Decode, Clone, Copy, Deserialize, PartialEq, Eq)]
-pub enum AccessTokenType {
-    Root,
-    Admin,
-    Post,
-}
-
-impl FromStr for AccessTokenType {
-    type Err = color_eyre::Report;
-
-    fn from_str(s: &str) -> Result<Self> {
-        Ok(match s {
-            "root" => Self::Root,
-            "admin" => Self::Admin,
-            "post" => Self::Post,
-            _ => bail!("Unknown token type"),
-        })
-    }
-}
-
 #[derive(Debug, Encode, Decode, Clone, Copy)]
 pub struct AccessTokenRecord {
     pub created: Ts,
@@ -77,9 +57,17 @@ pub struct AccessTokenRecord {
 pub const ROOT_ACCOUNT_ID: AccountId = AccountId::from_const(Uuid::from_u128(0));
 
 impl AccessTokenRecord {
-    pub fn ensure_can_create_tokens(&self, token_type: AccessTokenType) -> Result<()> {
+    pub fn ensure_can_create_tokens(
+        &self,
+        auth_account_id: AccountId,
+        token_type: AccessTokenType,
+    ) -> Result<()> {
         if token_type == AccessTokenType::Root {
             return Err(UserRequestError::Unauthorized.into());
+        }
+
+        if auth_account_id == ROOT_ACCOUNT_ID {
+            return Err(UserRequestError::RootAccountCantBeUsed.into());
         }
 
         if matches!(self.r#type, AccessTokenType::Admin) {
@@ -88,6 +76,7 @@ impl AccessTokenRecord {
 
         Err(UserRequestError::Unauthorized.into())
     }
+
     pub fn ensure_can_create_accounts(self) -> Result<()> {
         if matches!(self.r#type, AccessTokenType::Root) {
             return Ok(());

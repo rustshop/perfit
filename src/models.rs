@@ -1,6 +1,9 @@
 use std::fmt;
+use std::str::FromStr;
 
 use bincode::{Decode, Encode};
+use color_eyre::eyre::bail;
+use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -122,3 +125,23 @@ impl MetricInternalId {
 }
 
 define_uuidv4_newtype!(AccountId);
+
+#[derive(Debug, Encode, Decode, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]
+pub enum AccessTokenType {
+    Root,
+    Admin,
+    Post,
+}
+
+impl FromStr for AccessTokenType {
+    type Err = color_eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(match s {
+            "root" => Self::Root,
+            "admin" => Self::Admin,
+            "post" => Self::Post,
+            _ => bail!("Unknown token type"),
+        })
+    }
+}
