@@ -80,7 +80,7 @@ pub async fn render_chart_form(
         (
             "".into(),
             opts.start_fixed
-                .map(|f| f.to_string())
+                .and_then(|f| f.format(&TIME_FORMAT).ok())
                 .unwrap_or_else(|| time_bound.start.format(&TIME_FORMAT).expect("Valid format")),
         )
     };
@@ -93,7 +93,7 @@ pub async fn render_chart_form(
         (
             "".into(),
             opts.end_fixed
-                .map(|f| f.to_string())
+                .and_then(|f| f.format(&TIME_FORMAT).ok())
                 .unwrap_or_else(|| time_bound.end.format(&TIME_FORMAT).expect("Valid format")),
         )
     };
