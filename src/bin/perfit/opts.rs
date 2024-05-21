@@ -108,5 +108,12 @@ pub enum MetricCommand {
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum TokenCommand {
+    /// Locally generate a valid token
     Gen,
+
+    /// Create another access token for the given account
+    New {
+        #[command(flatten)]
+        server_args: ServerArgs,
+    },
 }

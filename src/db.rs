@@ -47,11 +47,24 @@ pub struct AccountRecord {
     pub created: Ts,
 }
 
-#[derive(Debug, Encode, Decode, Clone, Copy, Deserialize)]
+#[derive(Debug, Encode, Decode, Clone, Copy, Deserialize, PartialEq, Eq)]
 pub enum AccessTokenType {
     Root,
     Admin,
-    Metrics,
+    Post,
+}
+
+impl FromStr for AccessTokenType {
+    type Err = color_eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Ok(match s {
+            "root" => Self::Root,
+            "admin" => Self::Admin,
+            "post" => Self::Post,
+            _ => bail!("Unknown token type"),
+        })
+    }
 }
 
 #[derive(Debug, Encode, Decode, Clone, Copy)]
@@ -64,8 +77,12 @@ pub struct AccessTokenRecord {
 pub const ROOT_ACCOUNT_ID: AccountId = AccountId::from_const(Uuid::from_u128(0));
 
 impl AccessTokenRecord {
-    pub fn ensure_can_create_tokens(&self, account_id: AccountId) -> Result<()> {
-        if matches!(self.r#type, AccessTokenType::Admin) && account_id == self.account_id {
+    pub fn ensure_can_create_tokens(&self, token_type: AccessTokenType) -> Result<()> {
+        if token_type == AccessTokenType::Root {
+            return Err(UserRequestError::Unauthorized.into());
+        }
+
+        if matches!(self.r#type, AccessTokenType::Admin) {
             return Ok(());
         }
 

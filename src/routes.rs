@@ -215,7 +215,7 @@ pub fn route_handler(state: SharedAppState) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/a/", put(account_new))
-        .route("/t/:account", put(token_new))
+        .route("/t/", put(token_new))
         .route("/m/", put(metric_new))
         .route("/m/:metric", post(metric_post).get(metric_get_default_type))
         .route("/m/:metric/:type", get(metric_get))

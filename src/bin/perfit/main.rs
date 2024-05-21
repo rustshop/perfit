@@ -69,6 +69,9 @@ async fn main() -> Result<()> {
         opts::Command::Token(opts::TokenCommand::Gen) => {
             println!("{}", AccessToken::generate())
         }
+        opts::Command::Token(opts::TokenCommand::New { server_args }) => {
+            token_new(&server_args).await?;
+        }
     }
 
     Ok(())
@@ -106,6 +109,13 @@ async fn account_new(server_args: &ServerArgs) -> Result<()> {
 
 async fn metric_new(server_args: &ServerArgs) -> Result<()> {
     let response = make_request(server_args, Method::PUT, "m/", "").await?;
+    println!("{}", response.text().await?);
+
+    Ok(())
+}
+
+async fn token_new(server_args: &ServerArgs) -> Result<()> {
+    let response = make_request(server_args, Method::PUT, "t/", "").await?;
     println!("{}", response.text().await?);
 
     Ok(())
