@@ -1,4 +1,5 @@
-use std::ops;
+use std::ops::{self, Sub};
+use std::time::Duration;
 
 use axum::extract::{Path, Query, State};
 use axum::http::header::CONTENT_TYPE;
@@ -126,9 +127,13 @@ pub struct MetricOpts {
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub y_label: String,
     #[serde(with = "crate::serde::custom_rfc3339_option", default)]
-    pub start: Option<OffsetDateTime>,
+    pub start_fixed: Option<OffsetDateTime>,
     #[serde(with = "crate::serde::custom_rfc3339_option", default)]
-    pub end: Option<OffsetDateTime>,
+    pub end_fixed: Option<OffsetDateTime>,
+    #[serde(with = "humantime_serde::option", default)]
+    pub start_rel: Option<Duration>,
+    #[serde(with = "humantime_serde::option", default)]
+    pub end_rel: Option<Duration>,
     #[serde(deserialize_with = "deserialize_opt_f64_from_empty_string", default)]
     pub min: Option<f64>,
     #[serde(deserialize_with = "deserialize_opt_f64_from_empty_string", default)]
@@ -137,16 +142,17 @@ pub struct MetricOpts {
 
 impl MetricOpts {
     pub fn key_range(&self, metric_internal_id: MetricInternalId) -> ops::Range<DataPoint> {
+        let now = std::time::SystemTime::now();
         DataPoint {
             metric_internal_id,
-            ts: self.start.map(Ts::from).unwrap_or(Ts::ZERO),
+            ts: self.start(now).unwrap_or(Ts::ZERO),
             idx: 0,
         }
             ..self
-                .end
+                .end(now)
                 .map(|t| DataPoint {
                     metric_internal_id,
-                    ts: Ts::from(t),
+                    ts: t,
                     idx: 0,
                 })
                 .unwrap_or(DataPoint {
@@ -154,6 +160,18 @@ impl MetricOpts {
                     ts: Ts::ZERO,
                     idx: 0,
                 })
+    }
+
+    fn end(&self, now: std::time::SystemTime) -> Option<Ts> {
+        self.end_rel
+            .map(|duration| Ts::from(now.sub(duration)))
+            .or_else(|| self.end_fixed.map(Ts::from))
+    }
+
+    fn start(&self, now: std::time::SystemTime) -> Option<Ts> {
+        self.start_rel
+            .map(|duration| Ts::from(now.sub(duration)))
+            .or_else(|| self.start_fixed.map(Ts::from))
     }
 }
 

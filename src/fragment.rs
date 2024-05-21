@@ -71,15 +71,32 @@ pub async fn render_chart_form(
     const TIME_FORMAT: &[time::format_description::FormatItem<'static>] =
         time::macros::format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]Z");
 
-    let input_start_value = opts
-        .start
-        .map(|f| f.to_string())
-        .unwrap_or_else(|| time_bound.start.format(&TIME_FORMAT).expect("Valid format"));
-
-    let input_end_value = opts
-        .end
-        .map(|f| f.to_string())
-        .unwrap_or_else(|| time_bound.end.format(&TIME_FORMAT).expect("Valid format"));
+    let (input_start_rel_value, input_start_fixed_value) = if let Some(start_rel) = opts.start_rel {
+        (
+            humantime_serde::re::humantime::format_duration(start_rel).to_string(),
+            "".into(),
+        )
+    } else {
+        (
+            "".into(),
+            opts.start_fixed
+                .map(|f| f.to_string())
+                .unwrap_or_else(|| time_bound.start.format(&TIME_FORMAT).expect("Valid format")),
+        )
+    };
+    let (input_end_rel_value, input_end_fixed_value) = if let Some(end_rel) = opts.end_rel {
+        (
+            humantime_serde::re::humantime::format_duration(end_rel).to_string(),
+            "".into(),
+        )
+    } else {
+        (
+            "".into(),
+            opts.end_fixed
+                .map(|f| f.to_string())
+                .unwrap_or_else(|| time_bound.end.format(&TIME_FORMAT).expect("Valid format")),
+        )
+    };
 
     let input_class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500";
     let label_class = "block mb-2 text-sm font-medium text-gray-900 dark:text-white";
@@ -95,11 +112,12 @@ pub async fn render_chart_form(
                 form
                     hx-get=(state.html_chart_url(metric_id))
                     hx-push-url="true"
-                    hx-trigger="change from:(form input) delay:1s, keyup delay:1s"
+                    hx-trigger="change from:(form input) delay:0.5s, keyup delay:0.5s"
                     hx-target="find #svg-img"
                     hx-swap="outerHTML"
                     hx-select="#svg-img"
                     hx-sync="this:replace"
+                    id="metric-chart-form"
                 {
                     div class="grid grid-cols-6 gap-6" {
 
@@ -165,29 +183,57 @@ pub async fn render_chart_form(
                         }
                         div class="col-span-6 sm:col-span-3" {
                             label
-                                for="start"
+                                for="start-rel"
                                 class=(label_class)
-                                { "Start" }
+                                { "Start (rel)" }
 
                             input
-                                id="start"
+                                id="start-rel"
                                 class=(input_class)
-                                name="start"
+                                name="start-rel"
                                 type="text"
-                                value=(input_start_value);
+                                placeholder="2 weeks ..."
+                                value=(input_start_rel_value);
                         }
                         div class="col-span-6 sm:col-span-3" {
                             label
-                                for="end"
+                                for="end-rel"
                                 class=(label_class)
-                                { "End" }
+                                { "End (rel)" }
 
                             input
-                                id="end"
+                                id="end-rel"
                                 class=(input_class)
-                                name="end"
+                                name="end-rel"
                                 type="text"
-                                value=(input_end_value);
+                                placeholder="0s ..."
+                                value=(input_end_rel_value);
+                        }
+                        div class="col-span-6 sm:col-span-3" {
+                            label
+                                for="start-fixed"
+                                class=(label_class)
+                                { "Start (fixed)" }
+
+                            input
+                                id="start-fixed"
+                                class=(input_class)
+                                name="start-fixed"
+                                type="text"
+                                value=(input_start_fixed_value);
+                        }
+                        div class="col-span-6 sm:col-span-3" {
+                            label
+                                for="end-fixed"
+                                class=(label_class)
+                                { "End (fixed)" }
+
+                            input
+                                id="end-fixed"
+                                class=(input_class)
+                                name="end-fixed"
+                                type="text"
+                                value=(input_end_fixed_value);
                         }
                     }
                 }

@@ -2,5 +2,4 @@
 /.direnv
 /result
 /.env
-/db.redb
-/db.creds
+/perfitd.redb

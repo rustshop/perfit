@@ -1,5 +1,5 @@
 use std::ops::{self, Add};
-use std::time::{Duration, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,16 @@ impl From<time::OffsetDateTime> for Ts {
         Ts(value.unix_timestamp() as u64)
     }
 }
+
+impl From<SystemTime> for Ts {
+    fn from(value: SystemTime) -> Self {
+        value
+            .duration_since(UNIX_EPOCH)
+            .map(|d| Ts(d.as_secs()))
+            .unwrap_or_default()
+    }
+}
+
 impl From<time::PrimitiveDateTime> for Ts {
     fn from(value: time::PrimitiveDateTime) -> Self {
         Self::from(OffsetDateTime::new_utc(value.date(), value.time()))
