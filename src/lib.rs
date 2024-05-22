@@ -55,7 +55,7 @@ impl Server {
     pub async fn run(self) -> Result<()> {
         let governor_conf = Box::new(
             GovernorConfigBuilder::default()
-                .per_second(self.opts.rate_limit_replenish_micros)
+                .per_millisecond(self.opts.rate_limit_replenish_millis)
                 .burst_size(self.opts.rate_limit_burst)
                 .finish()
                 .unwrap(),
