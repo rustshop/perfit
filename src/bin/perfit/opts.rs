@@ -16,7 +16,7 @@ pub struct ServerArgs {
     #[arg(long, env = "PERFIT_SERVER")]
     pub server: Url,
 
-    #[arg(env = "PERFIT_ACCESS_TOKEN")]
+    #[arg(long, env = "PERFIT_ACCESS_TOKEN")]
     pub access_token: String,
 }
 
