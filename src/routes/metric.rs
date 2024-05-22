@@ -6,7 +6,6 @@ use axum::http::header::CONTENT_TYPE;
 use axum::http::Uri;
 use axum::response::{Html, IntoResponse, Response};
 use axum::Json;
-use maud::html;
 use reqwest::StatusCode;
 use resiter::AndThen as _;
 use serde::{Deserialize, Serialize};
@@ -19,7 +18,7 @@ use crate::db::{
     DataPoint, DataPointMetadata, DataPointRecord, DataPointValue, MetricRecord, TABLE_DATA_POINTS,
     TABLE_METRICS, TABLE_METRICS_REV,
 };
-use crate::fragment::{page, render_chart_form};
+use crate::fragment::render_chart_form;
 use crate::models::ts::Ts;
 use crate::models::{MetricId, MetricInternalId};
 use crate::state::SharedAppState;
