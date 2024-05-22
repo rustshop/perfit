@@ -19,7 +19,8 @@ use time::OffsetDateTime;
 use self::account::account_new;
 use self::error::{RequestError, RequestResult, UserErrorResponse, UserRequestError};
 use self::metric::{
-    get_metric, metric_get, metric_get_default_type, metric_new, metric_post, MetricOpts,
+    get_metric, metric_find, metric_get, metric_get_default_type, metric_new, metric_post,
+    MetricOpts,
 };
 use self::token::token_new;
 use crate::db::DataPointRecord;
@@ -216,7 +217,7 @@ pub fn route_handler(state: SharedAppState) -> Router {
         .route("/", get(index))
         .route("/a/", put(account_new))
         .route("/t/", put(token_new))
-        .route("/m/", put(metric_new))
+        .route("/m/", put(metric_new).get(metric_find))
         .route("/m/:metric", post(metric_post).get(metric_get_default_type))
         .route("/m/:metric/:type", get(metric_get))
         .fallback(not_found)

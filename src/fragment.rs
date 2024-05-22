@@ -7,6 +7,9 @@ use crate::routes::metric::MetricOpts;
 use crate::routes::render_svg;
 use crate::state::SharedAppState;
 
+const LABEL_CLASS: &str = "block mb-2 text-sm font-medium text-gray-900 dark:text-white";
+const TEXT_INPUT_CLASS: &str = "shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500";
+
 pub fn page(title: &str, content: Markup) -> Markup {
     /// A basic header with a dynamic `page_title`.
     pub(crate) fn head(page_title: &str) -> Markup {
@@ -34,7 +37,8 @@ pub fn page(title: &str, content: Markup) -> Markup {
     /// A static footer.
     pub(crate) fn footer() -> Markup {
         html! {
-            script src="https://unpkg.com/htmx.org@1.9.11" {};
+            script src="https://unpkg.com/htmx.org@1.9.12" {};
+            script src="https://unpkg.com/htmx.org@1.9.12/dist/ext/response-targets.js" {};
             script type="module" src="/assets/script.js" {};
             script type="module" src="/assets/script-htmx-send-error.js" {};
         }
@@ -52,7 +56,7 @@ pub fn page(title: &str, content: Markup) -> Markup {
             }
             (header())
 
-            main ."container flex items-center justify-center" {
+            main ."container flex flex-col items-center justify-center" {
                 (content)
             }
             (footer())
@@ -98,8 +102,6 @@ pub async fn render_chart_form(
         )
     };
 
-    let input_class="shadow-sm bg-gray-50 border border-gray-300 text-gray-900 sm:text-sm rounded-lg focus:ring-primary-500 focus:border-primary-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500";
-    let label_class = "block mb-2 text-sm font-medium text-gray-900 dark:text-white";
     let page_title = if opts.title.is_empty() {
         metric_id.to_string()
     } else {
@@ -133,12 +135,12 @@ pub async fn render_chart_form(
                         div class="col-span-6 sm:col-span-3" {
                             label
                                 for="min"
-                                class=(label_class)
+                                class=(LABEL_CLASS)
                                 { "Min" }
 
                             input
                                 id="min"
-                                class=(input_class)
+                                class=(TEXT_INPUT_CLASS)
                                 name="min"
                                 type="number"
                                 value=(opts.min.map(|f| f.to_string()).unwrap_or_else(|| "".into()));
@@ -146,10 +148,10 @@ pub async fn render_chart_form(
                         div class="col-span-6 sm:col-span-3" {
                             label
                                 for="max"
-                                class=(label_class)
+                                class=(LABEL_CLASS)
                                 { "Max" }
                             input id="max"
-                                class=(input_class)
+                                class=(TEXT_INPUT_CLASS)
                                 name="max"
                                 type="number"
                                 value=(opts.max.map(|f| f.to_string()).unwrap_or_else(|| "".into()));
@@ -158,10 +160,10 @@ pub async fn render_chart_form(
                         div class="col-span-6 sm:col-span-3" {
                             label
                                 for="title"
-                                class=(label_class)
+                                class=(LABEL_CLASS)
                                 { "Title" }
                             input
-                                class=(input_class)
+                                class=(TEXT_INPUT_CLASS)
                                 id="title"
                                 name="title"
                                 type="text"
@@ -171,10 +173,10 @@ pub async fn render_chart_form(
                         div class="col-span-6 sm:col-span-3" {
                             label
                                 for="y-label"
-                                class=(label_class)
+                                class=(LABEL_CLASS)
                                 { "Y Label" }
                             input
-                                class=(input_class)
+                                class=(TEXT_INPUT_CLASS)
                                 id="y-label"
                                 name="y-label"
                                 type="text"
@@ -184,12 +186,12 @@ pub async fn render_chart_form(
                         div class="col-span-6 sm:col-span-3" {
                             label
                                 for="start-rel"
-                                class=(label_class)
+                                class=(LABEL_CLASS)
                                 { "Start (rel)" }
 
                             input
                                 id="start-rel"
-                                class=(input_class)
+                                class=(TEXT_INPUT_CLASS)
                                 name="start-rel"
                                 type="text"
                                 placeholder="2 weeks ..."
@@ -198,12 +200,12 @@ pub async fn render_chart_form(
                         div class="col-span-6 sm:col-span-3" {
                             label
                                 for="end-rel"
-                                class=(label_class)
+                                class=(LABEL_CLASS)
                                 { "End (rel)" }
 
                             input
                                 id="end-rel"
-                                class=(input_class)
+                                class=(TEXT_INPUT_CLASS)
                                 name="end-rel"
                                 type="text"
                                 placeholder="0s ..."
@@ -212,12 +214,12 @@ pub async fn render_chart_form(
                         div class="col-span-6 sm:col-span-3" {
                             label
                                 for="start-fixed"
-                                class=(label_class)
+                                class=(LABEL_CLASS)
                                 { "Start (fixed)" }
 
                             input
                                 id="start-fixed"
-                                class=(input_class)
+                                class=(TEXT_INPUT_CLASS)
                                 name="start-fixed"
                                 type="text"
                                 value=(input_start_fixed_value);
@@ -225,12 +227,12 @@ pub async fn render_chart_form(
                         div class="col-span-6 sm:col-span-3" {
                             label
                                 for="end-fixed"
-                                class=(label_class)
+                                class=(LABEL_CLASS)
                                 { "End (fixed)" }
 
                             input
                                 id="end-fixed"
-                                class=(input_class)
+                                class=(TEXT_INPUT_CLASS)
                                 name="end-fixed"
                                 type="text"
                                 value=(input_end_fixed_value);
@@ -245,24 +247,54 @@ pub async fn render_chart_form(
 }
 
 pub fn index() -> color_eyre::Result<Markup> {
-    // use jotdown::Render;
-    // let djot_input = include_str!("../README.md");
-    // let events = jotdown::Parser::new(djot_input);
-    // let mut html = String::new();
-    // jotdown::html::Renderer::default()
-    //     .push(events, &mut html)
-    //     .map_err(|_e| UserRequestError::AssertionError)?;
-
     let content = html! {
+        div ."max-w-md mx-auto bg-white p-6 rounded-lg shadow-md my-6" {
+            p ."p-2" {
+                "PerfIt is a tiny web service that tracks and plots metrics: typically time it takes to execute things in CI-pipelines. "
 
-        p {
-            "PerfIt is a tiny web service that tracks and plots metrics: typically time it takes to execute things in CI-pipelines. "
-
-            "Read more at "
-            a href="https://github.com/rustshop/perfit"
-            class="hover:text-blue-600"
-            { "PerfIt github page" } "."
+                "Read more at "
+                a href="https://github.com/rustshop/perfit" class="text-blue-500 hover:text-blue-800" { "PerfIt github page" } "."
+            }
+            p ."p-2" {
+                "For most operations you want to use " span ."inline-block font-mono bg-gray-200 text-gray-800 px-1 rounded" { "perfit" } "command line client, but you can view metrics and customize charts for them interactively using the form below."
+            }
         }
+        div ."bg-white p-6 rounded-lg shadow-md my-6" hx-ext="response-targets" {
+
+                form
+                    hx-get="/m/"
+                    hx-target="this"
+                    hx-target-error="#error"
+                    hx-swap="innerHTML"
+                    hx-sync="this:replace"
+                    id="metric-find"
+                {
+                    div id="error" class="flex flex-row p-1"  { }
+
+                    div class="flex flex-row" {
+
+                        div class="px-2" {
+                            input
+                                id="metric-id"
+                                class=(TEXT_INPUT_CLASS)
+                                name="metric-id"
+                                type="text"
+                                placeholder = "Metric ID ..."
+                                value="";
+                        }
+
+                        div class="px-2" {
+                            button
+                                type="submit"
+                                ."bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline" {
+                                    "Find"
+                                }
+                        }
+                    }
+                }
+        }
+
+
 
     };
 

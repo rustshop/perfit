@@ -4,8 +4,10 @@ use std::time::Duration;
 use axum::extract::{Path, Query, State};
 use axum::http::header::CONTENT_TYPE;
 use axum::http::Uri;
-use axum::response::IntoResponse;
+use axum::response::{Html, IntoResponse, Response};
 use axum::Json;
+use maud::html;
+use reqwest::StatusCode;
 use resiter::AndThen as _;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -17,10 +19,37 @@ use crate::db::{
     DataPoint, DataPointMetadata, DataPointRecord, DataPointValue, MetricRecord, TABLE_DATA_POINTS,
     TABLE_METRICS, TABLE_METRICS_REV,
 };
-use crate::fragment::render_chart_form;
+use crate::fragment::{page, render_chart_form};
 use crate::models::ts::Ts;
 use crate::models::{MetricId, MetricInternalId};
 use crate::state::SharedAppState;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
+pub struct MetricGetPayload {
+    metric_id: MetricId,
+}
+
+#[instrument]
+pub async fn metric_find(
+    State(state): State<SharedAppState>,
+    Query(MetricGetPayload { metric_id }): Query<MetricGetPayload>,
+) -> RequestResult<Response> {
+    if let Some(_metric_record) = state
+        .db
+        .read_with(|tx| {
+            Ok(tx
+                .open_table(&TABLE_METRICS)?
+                .get(&metric_id)?
+                .map(|record| record.value()))
+        })
+        .await?
+    {
+        Ok(([("HX-Location", format!("/m/{}", metric_id))], Html("")).into_response())
+    } else {
+        Ok((StatusCode::NOT_FOUND, Html("Metric not found")).into_response())
+    }
+}
 
 #[instrument]
 pub async fn metric_new(
@@ -56,6 +85,7 @@ pub async fn metric_new(
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "kebab-case")]
 pub struct MetricPostPayload {
     value: DataPointValue,
     metadata: Option<DataPointMetadata>,
