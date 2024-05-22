@@ -125,10 +125,17 @@ pub async fn render_chart_form(
 
                         div class="col-span-6 relative" id="svg-img" {
                             (maud::PreEscaped(svg))
-                            a
-                                class="absolute bottom-4 right-6 hover:text-blue-600"
-                                href=(format!("{}?{}", state.svg_chart_url(metric_id), params)) {
-                                "Export..."
+                            div ."absolute bottom-4 right-6 flex flex-row" {
+                                a
+                                    class="hover:text-blue-600 p-2"
+                                    href=(format!("{}?{}", state.json_chart_url(metric_id), params)) {
+                                    "Json..."
+                                }
+                                a
+                                    class="hover:text-blue-600 p-2"
+                                    href=(format!("{}?{}", state.svg_chart_url(metric_id), params)) {
+                                    "Export..."
+                                }
                             }
                         }
 

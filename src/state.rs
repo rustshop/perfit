@@ -75,6 +75,9 @@ impl AppState {
     pub fn svg_chart_url(&self, metric_id: MetricId) -> String {
         format!("/m/{}/svg", metric_id)
     }
+    pub fn json_chart_url(&self, metric_id: MetricId) -> String {
+        format!("/m/{}/json", metric_id)
+    }
 
     pub fn html_chart_url(&self, metric_id: MetricId) -> String {
         format!("/m/{}", metric_id)
