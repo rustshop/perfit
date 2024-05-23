@@ -11,13 +11,17 @@ use reqwest::header::AUTHORIZATION;
 use reqwest::Method;
 use serde::Serialize;
 use serde_json::json;
+use tracing::info;
 
 use crate::opts::Opts;
 
 mod opts;
 
+const LOG_PERFIT: &str = "perfit";
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    install_tracing();
     let _opts = Opts::parse();
 
     match _opts.cmd {
@@ -32,6 +36,7 @@ async fn main() -> Result<()> {
             let (duration, exit_status) = run_and_time(cmd)?;
             let exit_code = exit_status.code().unwrap_or(255);
 
+            info!(target: LOG_PERFIT, duration_millis = duration.as_millis(), exit_code, "Command complete");
             if !exit_status.success() && !send_on_failure {
                 exit(exit_code);
             }
@@ -183,6 +188,12 @@ async fn send_data_point(
     data_point_args: &opts::DataPointArgs,
     value: f32,
 ) -> Result<()> {
+    info!(target: LOG_PERFIT,
+         server = %server_args.server,
+         metric = %metric_args.metric,
+         %value,
+         metadata = %data_point_args.metadata.as_deref().unwrap_or(""),
+         "Sending data point");
     make_request_json(
         server_args,
         Method::POST,
@@ -200,6 +211,9 @@ fn run_and_time(cmd: Vec<std::ffi::OsString>) -> Result<(Duration, ExitStatus)> 
     if cmd.is_empty() {
         bail!("Empty command");
     }
+
+    // Note: showing only num_args, in case there was something sensitive there
+    info!(target: LOG_PERFIT, cmd = %&cmd[0].to_string_lossy(), num_args = %cmd.len() - 1, "Running command");
     let start = std::time::Instant::now();
 
     let mut command = std::process::Command::new(&cmd[0]);
@@ -207,4 +221,21 @@ fn run_and_time(cmd: Vec<std::ffi::OsString>) -> Result<(Duration, ExitStatus)> 
     let exit_status = command.spawn()?.wait()?;
 
     Ok((start.elapsed(), exit_status))
+}
+
+fn install_tracing() {
+    use tracing_error::ErrorLayer;
+    use tracing_subscriber::prelude::*;
+    use tracing_subscriber::{fmt, EnvFilter};
+
+    let fmt_layer = fmt::layer().with_writer(std::io::stderr).with_target(false);
+    let filter_layer = EnvFilter::try_from_default_env()
+        .or_else(|_| EnvFilter::try_new("info"))
+        .unwrap();
+
+    tracing_subscriber::registry()
+        .with(filter_layer)
+        .with(fmt_layer)
+        .with(ErrorLayer::default())
+        .init();
 }
