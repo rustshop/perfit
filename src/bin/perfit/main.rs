@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
             data_point_args,
             cmd,
             send_on_failure,
-            ignore_send_failure,
+            fail_on_send_failure,
             metric_args,
         } => {
             let (duration, exit_status) = run_and_time(cmd)?;
@@ -44,10 +44,10 @@ async fn main() -> Result<()> {
             )
             .await
             {
-                if !ignore_send_failure {
+                if fail_on_send_failure {
                     return Err(err);
                 }
-                eprintln!("{}", err);
+                eprintln!("Failed to report data point: {}", err);
             }
             exit(exit_code);
         }

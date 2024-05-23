@@ -51,9 +51,9 @@ pub enum Command {
         #[arg(long)]
         send_on_failure: bool,
 
-        /// Do not fail if unable to send the data point
+        /// Fail if unable to send the data point
         #[arg(long)]
-        ignore_send_failure: bool,
+        fail_on_send_failure: bool,
 
         #[arg(allow_hyphen_values = true, trailing_var_arg = true)]
         cmd: Vec<ffi::OsString>,
