@@ -14,6 +14,7 @@ use axum::middleware::{self, Next};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post, put};
 use axum::Router;
+use reqwest::header::ACCEPT_ENCODING;
 use time::OffsetDateTime;
 
 use self::account::account_new;
@@ -145,31 +146,44 @@ pub fn static_file_handler(state: SharedAppState) -> Router {
         .route(
             "/:file",
             get(
-                |state: State<SharedAppState>, path: Path<String>| async move {
+                |state: State<SharedAppState>, path: Path<String>, req_headers: HeaderMap| async move {
                     let Some(asset) = state.assets.get_from_path(&path) else {
                         return StatusCode::NOT_FOUND.into_response();
                     };
 
-                    let mut headers = HeaderMap::new();
+                    let mut resp_headers = HeaderMap::new();
 
                     // We set the content type explicitly here as it will otherwise
                     // be inferred as an `octet-stream`
-                    headers.insert(
+                    resp_headers.insert(
                         CONTENT_TYPE,
                         HeaderValue::from_static(
                             asset.content_type().unwrap_or("application/octet-stream"),
                         ),
                     );
 
-                    let content = if let Some(compressed) = asset.compressed.as_ref() {
-                        headers.insert(CONTENT_ENCODING, HeaderValue::from_static("br"));
+                    let accepts_brotli = req_headers.get_all(ACCEPT_ENCODING)
+                        .into_iter().any(|encodings| {
+                            let Ok(str) = encodings.to_str() else { return false };
 
-                        compressed.clone()
+                            str.split(',').any(|s| s.trim() == "br")
+
+                          });
+
+                    let content =
+                        if accepts_brotli {
+                            if let Some(compressed) = asset.compressed.as_ref() {
+                                resp_headers.insert(CONTENT_ENCODING, HeaderValue::from_static("br"));
+
+                                compressed.clone()
+                            } else {
+                            asset.raw.clone()
+                        }
                     } else {
                         asset.raw.clone()
                     };
 
-                    (headers, content).into_response()
+                    (resp_headers, content).into_response()
                 },
             ),
         )
