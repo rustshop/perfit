@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::future::ready;
 use std::io::Write as _;
 use std::path;
+use std::string::String;
 
 use axum::extract::Path;
 use bytes::Bytes;
@@ -45,7 +46,7 @@ impl AssetCache {
         info!(dir=%dir.display(), "Loading assets");
         let mut cache = HashMap::default();
 
-        let assets: Vec<color_eyre::Result<(String, String, Bytes)>> =
+        let assets: Vec<color_eyre::Result<(String, StaticAsset)>> =
             ReadDirStream::new(tokio::fs::read_dir(dir).await?)
                 .map(|file| async move {
                     let file = file?;
@@ -65,41 +66,34 @@ impl AssetCache {
                         .map_err(|_| color_eyre::eyre::format_err!("Invalid path"))?;
                     tracing::debug!(path = %stored_path, "Loading asset");
 
-                    let bytes = tokio::fs::read(&path).await?;
+                    let raw = tokio::fs::read(&path).await?;
 
-                    let contents = match ext {
-                        "css" | "js" => compress_data(&bytes),
-                        _ => bytes,
+                    let compressed = match ext {
+                        "css" | "js" => Some(compress_data(&raw)),
+                        _ => None,
                     };
 
                     Ok(Some((
-                        stored_path,
                         filename.to_string(),
-                        Bytes::from(contents),
+                        StaticAsset {
+                            path: stored_path,
+                            raw: Bytes::from(raw),
+                            compressed: compressed.map(Bytes::from),
+                        },
                     )))
                 })
                 .buffered(8)
                 .filter_map(
-                    |res_opt: color_eyre::Result<
-                        std::option::Option<(
-                            std::string::String,
-                            std::string::String,
-                            bytes::Bytes,
-                        )>,
-                    >| ready(res_opt.transpose()),
+                    |res_opt: color_eyre::Result<std::option::Option<(String, StaticAsset)>>| {
+                        ready(res_opt.transpose())
+                    },
                 )
                 .collect::<Vec<_>>()
                 .await;
 
         for asset_res in assets {
-            let (stored_path, filename, contents) = asset_res?;
-            cache.insert(
-                Self::get_cache_key(&filename),
-                StaticAsset {
-                    path: stored_path,
-                    contents,
-                },
-            );
+            let (filename, asset) = asset_res?;
+            cache.insert(Self::get_cache_key(&filename), asset);
         }
 
         for (key, asset) in &cache {
@@ -118,7 +112,8 @@ impl AssetCache {
 #[derive(Debug)]
 pub struct StaticAsset {
     pub path: String,
-    pub contents: Bytes,
+    pub raw: Bytes,
+    pub compressed: Option<Bytes>,
 }
 
 impl StaticAsset {

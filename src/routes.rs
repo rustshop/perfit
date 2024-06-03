@@ -161,11 +161,15 @@ pub fn static_file_handler(state: SharedAppState) -> Router {
                         ),
                     );
 
-                    if [Some("css"), Some("js")].contains(&asset.ext()) {
+                    let content = if let Some(compressed) = asset.compressed.as_ref() {
                         headers.insert(CONTENT_ENCODING, HeaderValue::from_static("br"));
-                    }
 
-                    (headers, asset.contents.clone()).into_response()
+                        compressed.clone()
+                    } else {
+                        asset.raw.clone()
+                    };
+
+                    (headers, content).into_response()
                 },
             ),
         )
