@@ -6,7 +6,9 @@ pub mod opts;
 mod routes;
 mod state;
 
+use std::env;
 use std::net::SocketAddr;
+use std::os::fd::FromRawFd as _;
 use std::str::FromStr as _;
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,6 +16,7 @@ use std::time::Duration;
 use axum::http::header::{ACCEPT, CONTENT_TYPE};
 use axum::http::{HeaderName, Method};
 use axum::Router;
+use color_eyre::eyre::bail;
 use color_eyre::Result;
 use db::Database;
 use tokio::net::{TcpListener, TcpSocket};
@@ -24,7 +27,7 @@ use tower_http::compression::predicate::SizeAbove;
 use tower_http::compression::CompressionLayer;
 use tower_http::cors::CorsLayer;
 use tower_http::CompressionLevel;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::asset_cache::AssetCache;
 use crate::state::AppState;
@@ -54,21 +57,37 @@ impl Server {
     }
 
     pub async fn get_listener(opts: &opts::Opts) -> Result<TcpListener> {
-        let addr = SocketAddr::from_str(&opts.listen)?;
+        let pid = std::process::id();
+        let listen_pid = env::var("LISTEN_PID").unwrap_or_default();
+        let listen_fds = env::var("LISTEN_FDS").unwrap_or_default();
 
-        let socket = if addr.is_ipv4() {
-            TcpSocket::new_v4()?
+        let socket = if pid.to_string() == listen_pid {
+            if listen_fds != "1" {
+                warn!("LISTEN_FDS should be 1, ignoring extra fds");
+            }
+
+            let socket = unsafe { TcpSocket::from_raw_fd(3) };
+            socket.set_nodelay(true)?;
+            socket
         } else {
-            TcpSocket::new_v6()?
+            let addr = SocketAddr::from_str(&opts.listen)?;
+
+            let socket = if addr.is_ipv4() {
+                TcpSocket::new_v4()?
+            } else {
+                TcpSocket::new_v6()?
+            };
+            if opts.reuseport {
+                #[cfg(unix)]
+                socket.set_reuseport(true)?;
+            }
+            socket.set_nodelay(true)?;
+
+            socket.bind(addr)?;
+
+            socket
         };
 
-        if opts.reuseport {
-            #[cfg(unix)]
-            socket.set_reuseport(true)?;
-        }
-        socket.set_nodelay(true)?;
-
-        socket.bind(addr)?;
         Ok(socket.listen(1024)?)
     }
 

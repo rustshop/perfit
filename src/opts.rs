@@ -21,8 +21,7 @@ pub struct Opts {
     #[arg(long, short, default_value = "[::1]:5050", env = "PERFITD_LISTEN")]
     pub listen: String,
 
-    /// Reuse potentially already opened port (useful for systemd socket
-    /// activation)
+    /// Set SO_REUSEPORT
     #[arg(long, env = "PERFITD_REUSEPORT")]
     pub reuseport: bool,
 
