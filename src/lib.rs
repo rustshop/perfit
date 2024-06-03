@@ -44,9 +44,11 @@ pub struct Server {
 
 impl Server {
     pub async fn init(opts: opts::Opts) -> Result<Server> {
-        let assets = AssetCache::load_files(&opts.assets_dir).await;
-        let listener = Self::get_listener(&opts).await?;
-        let db = Database::open(&opts.db).await?;
+        let (assets, listener, db) = tokio::try_join!(
+            AssetCache::load_files(&opts.assets_dir),
+            Self::get_listener(&opts),
+            Database::open(&opts.db),
+        )?;
         let state = Arc::new(AppState {
             db,
             assets,

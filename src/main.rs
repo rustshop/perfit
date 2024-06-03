@@ -1,9 +1,11 @@
 use clap::Parser;
 use color_eyre::Result;
+use tracing::info;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     install_tracing();
+    info!(version = env!("CARGO_PKG_VERSION"), "Starting perfitd");
 
     let opts = perfitd::opts::Opts::parse();
     perfitd::Server::init(opts).await?.run().await

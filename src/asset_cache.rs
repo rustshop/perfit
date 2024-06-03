@@ -1,10 +1,12 @@
 use std::collections::HashMap;
+use std::future::ready;
+use std::io::Write as _;
 use std::path;
 
-use async_compression::tokio::write::BrotliEncoder;
 use axum::extract::Path;
 use bytes::Bytes;
-use tokio::io::AsyncWriteExt;
+use futures_util::stream::StreamExt as _;
+use tokio_stream::wrappers::ReadDirStream;
 use tracing::info;
 
 const HASH_SPLIT_CHAR: char = '.';
@@ -39,33 +41,58 @@ impl AssetCache {
         format!("{}.{}", basename, ext)
     }
 
-    pub async fn load_files(dir: &path::Path) -> Self {
+    pub async fn load_files(dir: &path::Path) -> color_eyre::Result<Self> {
         info!(dir=%dir.display(), "Loading assets");
         let mut cache = HashMap::default();
 
-        let assets: Vec<(String, Vec<u8>, String, String)> = std::fs::read_dir(dir)
-            .unwrap_or_else(|e| panic!("failed to read build directory: {}", e))
-            .filter_map(Result::ok)
-            .filter_map(|file| {
-                let path = file.path();
-                let filename = path.file_name()?.to_str()?;
-                let ext = path.extension()?.to_str()?;
+        let assets: Vec<color_eyre::Result<(String, String, Bytes)>> =
+            ReadDirStream::new(tokio::fs::read_dir(dir).await?)
+                .map(|file| async move {
+                    let file = file?;
+                    let path = file.path();
+                    let filename = path.file_name().and_then(|n| n.to_str());
+                    let ext = path.extension().and_then(|p| p.to_str());
 
-                let stored_path = path.clone().into_os_string().into_string().ok()?;
-                tracing::debug!(path = %stored_path, "Loading asset");
+                    let (filename, ext) = match (filename, ext) {
+                        (Some(filename), Some(ext)) => (filename, ext),
+                        _ => return Ok(None),
+                    };
 
-                std::fs::read(&path)
-                    .ok()
-                    .map(|bytes| (stored_path, bytes, ext.to_string(), filename.to_string()))
-            })
-            .collect();
+                    let stored_path = path
+                        .clone()
+                        .into_os_string()
+                        .into_string()
+                        .map_err(|_| color_eyre::eyre::format_err!("Invalid path"))?;
+                    tracing::debug!(path = %stored_path, "Loading asset");
 
-        for (stored_path, bytes, ext, filename) in assets {
-            let contents = match ext.as_str() {
-                "css" | "js" => compress_data(&bytes).await.unwrap_or_default(),
-                _ => bytes.into(),
-            };
+                    let bytes = tokio::fs::read(&path).await?;
 
+                    let contents = match ext {
+                        "css" | "js" => compress_data(&bytes),
+                        _ => bytes,
+                    };
+
+                    Ok(Some((
+                        stored_path,
+                        filename.to_string(),
+                        Bytes::from(contents),
+                    )))
+                })
+                .buffered(8)
+                .filter_map(
+                    |res_opt: color_eyre::Result<
+                        std::option::Option<(
+                            std::string::String,
+                            std::string::String,
+                            bytes::Bytes,
+                        )>,
+                    >| ready(res_opt.transpose()),
+                )
+                .collect::<Vec<_>>()
+                .await;
+
+        for asset_res in assets {
+            let (stored_path, filename, contents) = asset_res?;
             cache.insert(
                 Self::get_cache_key(&filename),
                 StaticAsset {
@@ -80,7 +107,7 @@ impl AssetCache {
         }
         tracing::debug!(len = cache.len(), "Loaded assets");
 
-        Self(cache)
+        Ok(Self(cache))
     }
 }
 
@@ -112,12 +139,14 @@ impl StaticAsset {
     }
 }
 
-async fn compress_data(bytes: &[u8]) -> Result<Bytes, std::io::Error> {
-    let mut encoder =
-        BrotliEncoder::with_quality(Vec::new(), async_compression::Level::Precise(11));
+fn compress_data(input: &[u8]) -> Vec<u8> {
+    let mut bytes = vec![];
 
-    encoder.write_all(bytes).await?;
-    encoder.shutdown().await?;
+    let mut writer = brotli::CompressorWriter::new(&mut bytes, 4096, 6, 20);
 
-    Ok(Bytes::from(encoder.into_inner()))
+    writer.write_all(input).expect("Can't fail");
+
+    drop(writer);
+
+    bytes
 }
