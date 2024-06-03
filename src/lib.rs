@@ -74,7 +74,10 @@ impl Server {
                 warn!("LISTEN_FDS should be 1, ignoring extra fds");
             }
 
-            let socket = unsafe { TcpSocket::from_raw_fd(3) };
+            let stream = unsafe { std::net::TcpStream::from_raw_fd(3) };
+            stream.set_nonblocking(true)?;
+
+            let socket = TcpSocket::from_std_stream(stream);
             socket.set_nodelay(true)?;
             socket
         } else {
