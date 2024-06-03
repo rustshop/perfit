@@ -10,15 +10,19 @@ use std::env;
 use std::net::SocketAddr;
 use std::os::fd::FromRawFd as _;
 use std::str::FromStr as _;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use axum::extract::{Request, State};
 use axum::http::header::{ACCEPT, CONTENT_TYPE};
 use axum::http::{HeaderName, Method};
+use axum::middleware::{self, Next};
+use axum::response::Response;
 use axum::Router;
-use color_eyre::eyre::bail;
 use color_eyre::Result;
 use db::Database;
+use state::SharedAppState;
 use tokio::net::{TcpListener, TcpSocket};
 use tokio::signal;
 use tower_governor::governor::GovernorConfigBuilder;
@@ -43,7 +47,11 @@ impl Server {
         let assets = AssetCache::load_files(&opts.assets_dir).await;
         let listener = Self::get_listener(&opts).await?;
         let db = Database::open(&opts.db).await?;
-        let state = Arc::new(AppState { db, assets });
+        let state = Arc::new(AppState {
+            db,
+            assets,
+            req_counter: AtomicU64::default(),
+        });
 
         if let Some(access_token) = opts.root_access_token {
             state.init_root_account(&access_token).await?;
@@ -116,6 +124,8 @@ impl Server {
             .merge(routes::route_handler(self.state.clone()))
             .nest("/assets", routes::static_file_handler(self.state.clone()));
 
+        let state = self.state.clone();
+
         info!("Starting server");
         axum::serve(
             self.listener,
@@ -125,9 +135,18 @@ impl Server {
                 .layer(GovernorLayer {
                     config: Box::leak(governor_conf),
                 })
+                .layer(middleware::from_fn_with_state(
+                    state.clone(),
+                    update_req_count,
+                ))
                 .into_make_service_with_connect_info::<SocketAddr>(),
         )
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(async move {
+            tokio::select! {
+             _ = shutdown_signal()  => {}
+             _ = Self::wait_idle(state), if self.opts.shutdown_on_idle => {}
+            }
+        })
         .await?;
 
         Ok(())
@@ -135,6 +154,26 @@ impl Server {
 
     pub fn addr(&self) -> Result<SocketAddr> {
         Ok(self.listener.local_addr()?)
+    }
+
+    pub async fn wait_idle(state: Arc<AppState>) {
+        debug!("Will shutdown on idle");
+        let mut prev = state.req_counter.load(Ordering::Relaxed);
+
+        loop {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            let curr = state.req_counter.load(Ordering::Relaxed);
+
+            if prev == curr {
+                info!("Idle. Exiting...");
+                return;
+            }
+            debug!(
+                num = curr.saturating_sub(prev),
+                "Activity while waiting for shutdown on idle"
+            );
+            prev = curr;
+        }
     }
 }
 
@@ -159,6 +198,11 @@ fn cors_layer(opts: &opts::Opts) -> Result<CorsLayer> {
             Method::HEAD,
             Method::PATCH,
         ]))
+}
+
+async fn update_req_count(state: State<SharedAppState>, request: Request, next: Next) -> Response {
+    state.req_counter.fetch_add(1, Ordering::Relaxed);
+    next.run(request).await
 }
 
 async fn shutdown_signal() {

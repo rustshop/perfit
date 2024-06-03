@@ -1,3 +1,4 @@
+use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 
 use tracing::info;
@@ -15,6 +16,7 @@ use crate::models::{AccessTokenType, MetricId};
 pub struct AppState {
     pub db: Database,
     pub assets: AssetCache,
+    pub req_counter: AtomicU64,
 }
 
 impl AppState {

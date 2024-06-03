@@ -25,6 +25,10 @@ pub struct Opts {
     #[arg(long, env = "PERFITD_REUSEPORT")]
     pub reuseport: bool,
 
+    /// Shutdown on inactivity
+    #[arg(long, env = "PERFITD_SHUTDOWN_ON_IDLE")]
+    pub shutdown_on_idle: bool,
+
     /// Database file path
     #[arg(long, default_value = "perfitd.redb", env = "PERFITD_DB_PATH")]
     pub db: PathBuf,
@@ -67,6 +71,7 @@ impl Default for Opts {
             rate_limit_replenish_millis: 500000,
             rate_limit_burst: 60,
             reuseport: false,
+            shutdown_on_idle: Default::default(),
         }
     }
 }
