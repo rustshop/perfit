@@ -21,6 +21,11 @@ pub struct Opts {
     #[arg(long, short, default_value = "[::1]:5050", env = "PERFITD_LISTEN")]
     pub listen: String,
 
+    /// Reuse potentially already opened port (useful for systemd socket
+    /// activation)
+    #[arg(long, env = "PERFITD_REUSEPORT")]
+    pub reuseport: bool,
+
     /// Database file path
     #[arg(long, default_value = "perfitd.redb", env = "PERFITD_DB_PATH")]
     pub db: PathBuf,
@@ -62,6 +67,7 @@ impl Default for Opts {
             root_access_token: None,
             rate_limit_replenish_millis: 500000,
             rate_limit_burst: 60,
+            reuseport: false,
         }
     }
 }

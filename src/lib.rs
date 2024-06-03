@@ -7,6 +7,7 @@ mod routes;
 mod state;
 
 use std::net::SocketAddr;
+use std::str::FromStr as _;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -15,6 +16,7 @@ use axum::http::{HeaderName, Method};
 use axum::Router;
 use color_eyre::Result;
 use db::Database;
+use tokio::net::{TcpListener, TcpSocket};
 use tokio::signal;
 use tower_governor::governor::GovernorConfigBuilder;
 use tower_governor::GovernorLayer;
@@ -29,14 +31,14 @@ use crate::state::AppState;
 
 pub struct Server {
     opts: opts::Opts,
-    listener: tokio::net::TcpListener,
+    listener: TcpListener,
     state: Arc<AppState>,
 }
 
 impl Server {
     pub async fn init(opts: opts::Opts) -> Result<Server> {
         let assets = AssetCache::load_files(&opts.assets_dir).await;
-        let listener = tokio::net::TcpListener::bind(opts.listen.clone()).await?;
+        let listener = Self::get_listener(&opts).await?;
         let db = Database::open(&opts.db).await?;
         let state = Arc::new(AppState { db, assets });
 
@@ -49,6 +51,25 @@ impl Server {
             opts,
             state,
         })
+    }
+
+    pub async fn get_listener(opts: &opts::Opts) -> Result<TcpListener> {
+        let addr = SocketAddr::from_str(&opts.listen)?;
+
+        let socket = if addr.is_ipv4() {
+            TcpSocket::new_v4()?
+        } else {
+            TcpSocket::new_v6()?
+        };
+
+        if opts.reuseport {
+            #[cfg(unix)]
+            socket.set_reuseport(true)?;
+        }
+        socket.set_nodelay(true)?;
+
+        socket.bind(addr)?;
+        Ok(socket.listen(1024)?)
     }
 
     // TODO: move more stuff to init
