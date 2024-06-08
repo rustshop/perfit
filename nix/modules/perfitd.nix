@@ -21,6 +21,12 @@ let
         description = "The group as which to run perfitd.";
       };
 
+      onDemand = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Start the service on demand using systemd socket activation";
+      };
+
       extraEnvironment = mkOption {
         type = types.attrsOf types.str;
         description = lib.mdDoc "Extra Environment variables to pass to the perfitd.";
@@ -47,6 +53,7 @@ let
         default = false;
         description = lib.mdDoc "Opens port in firewall for perfitd's p2p port";
       };
+
       port = mkOption {
         type = types.port;
         default = 5050;
@@ -138,19 +145,23 @@ in
             {
               description = "Perfit Server";
               documentation = [ "https://github.com/perfit/perfit/" ];
-              wantedBy = [ "multi-user.target" ];
+              wantedBy = optionals (!cfg.onDemand) [ "multi-user.target" ];
+              requires = optionals cfg.onDemand [ "perfitd-${perfitdName}.socket" ];
               environment = lib.mkMerge ([
                 {
                   PERFITD_LISTEN = "${cfg.bind}:${builtins.toString cfg.port}";
                   PERFITD_DB_PATH = "${cfg.dataDir}/perfitd.db";
                 }
+                (optionalAttrs cfg.onDemand {
+                  PERFITD_SHUTDOWN_ON_IDLE = "true";
+                })
                 cfg.extraEnvironment
               ]);
               serviceConfig = {
                 User = cfg.user;
                 Group = cfg.group;
 
-                Restart = "always";
+                Restart = if cfg.onDemand then "on-failure" else "always";
                 RestartSec = 10;
                 StartLimitBurst = 5;
                 UMask = "077";
@@ -188,6 +199,23 @@ in
           )
         ))
         eachPerfitd;
+
+
+    systemd.sockets =
+      mapAttrs'
+        (perfitdName: cfg: (
+          nameValuePair "perfitd-${perfitdName}" (
+            {
+              description = "Perfitd activation socket";
+              listenStreams = [ (builtins.toString cfg.port) ];
+              wantedBy = [ "sockets.target" ];
+              socketConfig = {
+                Accept = "no";
+              };
+            }
+          )
+        ))
+        (filterAttrs (k: v: v.onDemand) eachPerfitd);
 
 
     users.users = mapAttrs'

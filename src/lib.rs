@@ -173,6 +173,7 @@ impl Server {
                 info!("Idle. Exiting...");
                 return;
             }
+
             debug!(
                 num = curr.saturating_sub(prev),
                 "Activity while waiting for shutdown on idle"
