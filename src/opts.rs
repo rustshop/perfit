@@ -55,6 +55,11 @@ pub struct Opts {
     )]
     pub rate_limit_replenish_millis: u64,
 
+    /// Set when NOT running behind a rev proxy like nginx, to use direct peer
+    /// ip as rate limit key.
+    #[arg(long, env = "PERFITD_RATE_LIMIT_PEER_IP")]
+    pub rate_limit_peer_ip: bool,
+
     /// Rate limit burst size
     #[arg(long, default_value = "60", env = "PERFITD_RATE_LIMIT_BURST")]
     pub rate_limit_burst: u32,
@@ -72,6 +77,7 @@ impl Default for Opts {
             rate_limit_burst: 60,
             reuseport: false,
             shutdown_on_idle: Default::default(),
+            rate_limit_peer_ip: false,
         }
     }
 }

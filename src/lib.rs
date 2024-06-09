@@ -7,7 +7,7 @@ mod routes;
 mod state;
 
 use std::env;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::os::fd::FromRawFd as _;
 use std::str::FromStr as _;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -26,6 +26,7 @@ use state::SharedAppState;
 use tokio::net::{TcpListener, TcpSocket};
 use tokio::signal;
 use tower_governor::governor::GovernorConfigBuilder;
+use tower_governor::key_extractor::{KeyExtractor, PeerIpKeyExtractor, SmartIpKeyExtractor};
 use tower_governor::GovernorLayer;
 use tower_http::compression::predicate::SizeAbove;
 use tower_http::compression::CompressionLayer;
@@ -35,6 +36,33 @@ use tracing::{debug, info, warn};
 
 use crate::asset_cache::AssetCache;
 use crate::state::AppState;
+
+#[derive(Clone)]
+pub enum OurKeyExtractor {
+    PeerIp(PeerIpKeyExtractor),
+    RevProxy(SmartIpKeyExtractor),
+}
+
+impl KeyExtractor for OurKeyExtractor {
+    type Key = IpAddr;
+
+    fn name(&self) -> &'static str {
+        match self {
+            OurKeyExtractor::PeerIp(ex) => ex.name(),
+            OurKeyExtractor::RevProxy(ex) => ex.name(),
+        }
+    }
+
+    fn extract<T>(
+        &self,
+        req: &axum::http::Request<T>,
+    ) -> Result<Self::Key, tower_governor::GovernorError> {
+        match self {
+            OurKeyExtractor::PeerIp(ex) => ex.extract(req),
+            OurKeyExtractor::RevProxy(ex) => ex.extract(req),
+        }
+    }
+}
 
 pub struct Server {
     opts: opts::Opts,
@@ -106,13 +134,16 @@ impl Server {
 
     // TODO: move more stuff to init
     pub async fn run(self) -> Result<()> {
-        let governor_conf = Box::new(
-            GovernorConfigBuilder::default()
-                .per_millisecond(self.opts.rate_limit_replenish_millis)
-                .burst_size(self.opts.rate_limit_burst)
-                .finish()
-                .unwrap(),
-        );
+        let governor_conf = GovernorConfigBuilder::default()
+            .per_millisecond(self.opts.rate_limit_replenish_millis)
+            .burst_size(self.opts.rate_limit_burst)
+            .key_extractor(if self.opts.rate_limit_peer_ip {
+                OurKeyExtractor::PeerIp(PeerIpKeyExtractor)
+            } else {
+                OurKeyExtractor::RevProxy(SmartIpKeyExtractor)
+            })
+            .finish()
+            .unwrap();
 
         let governor_limiter = governor_conf.limiter().clone();
         let interval = Duration::from_secs(60);
@@ -138,7 +169,7 @@ impl Server {
                 .layer(cors_layer(&self.opts)?)
                 .layer(compression_layer())
                 .layer(GovernorLayer {
-                    config: Box::leak(governor_conf),
+                    config: Box::leak(Box::new(governor_conf)),
                 })
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
